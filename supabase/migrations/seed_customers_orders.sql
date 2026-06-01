@@ -1,0 +1,17 @@
+INSERT INTO public.customers (id, restaurant_id, name, phone, total_orders, total_spent, status, last_order_at) VALUES
+('b0000001-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Carlos Silva', '5511999990001', 5, 149.50, 'recorrente', now() - interval '1 day'),
+('b0000001-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Ana Oliveira', '5511999990002', 3, 87.70, 'recorrente', now() - interval '2 days'),
+('b0000001-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Pedro Santos', '5511999990003', 1, 34.90, 'novo', now() - interval '5 days'),
+('b0000001-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Maria Costa', '5511999990004', 8, 245.30, 'recorrente', now() - interval '3 hours'),
+('b0000001-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'João Lima', '5511999990005', 0, 0, 'novo', NULL),
+('b0000001-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'Lucia Pereira', '5511999990006', 2, 44.80, 'recorrente', now() - interval '15 days')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.orders (id, restaurant_id, customer_id, customer_name, customer_phone, status, total, channel, type, payment_method, items, created_at, delivery_person_id) VALUES
+('d0000001-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000001', 'Carlos Silva', '5511999990001', 'new', 34.90, 'whatsapp', 'delivery', 'pix', '[{"name":"Smash Burger","qty":1,"price":29.90},{"name":"Coca-Cola Lata","qty":1,"price":5.00}]', now() - interval '1 hour', NULL),
+('d0000001-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000004', 'Maria Costa', '5511999990004', 'preparing', 44.80, 'whatsapp', 'delivery', 'card', '[{"name":"Duplo Bacon","qty":1,"price":34.90},{"name":"Batata Frita","qty":1,"price":9.90}]', now() - interval '30 minutes', NULL),
+('d0000001-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000002', 'Ana Oliveira', '5511999990002', 'ready', 29.90, 'whatsapp', 'delivery', 'pix', '[{"name":"Smash Burger","qty":1,"price":29.90}]', now() - interval '2 hours', '44444444-4444-4444-4444-444444444444'),
+('d0000001-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000003', 'Pedro Santos', '5511999990003', 'delivery', 34.90, 'whatsapp', 'delivery', 'cash', '[{"name":"Duplo Bacon","qty":1,"price":34.90}]', now() - interval '3 hours', '44444444-4444-4444-4444-444444444444'),
+('d0000001-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000006', 'Lucia Pereira', '5511999990006', 'completed', 44.80, 'whatsapp', 'retirada', 'pix', '[{"name":"Milkshake","qty":1,"price":16.90},{"name":"Petit Gateau","qty":1,"price":18.90},{"name":"Coca-Cola Lata","qty":1,"price":5.90}]', now() - interval '1 day', NULL),
+('d0000001-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'b0000001-0000-0000-0000-000000000001', 'Carlos Silva', '5511999990001', 'completed', 49.80, 'whatsapp', 'delivery', 'card', '[{"name":"Smash Burger","qty":1,"price":29.90},{"name":"Milkshake","qty":1,"price":16.90},{"name":"Brownie","qty":1,"price":14.90}]', now() - interval '2 days', '44444444-4444-4444-4444-444444444444')
+ON CONFLICT (id) DO NOTHING;
