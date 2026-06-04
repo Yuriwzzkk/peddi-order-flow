@@ -14,14 +14,18 @@ const statusConfig: Record<string, { label: string; color: string; next?: string
   ready: { label: "Pronto", color: "bg-status-ready", next: "delivery", action: "Iniciar entrega" },
   delivery: { label: "Entrega", color: "bg-status-delivery", next: "completed", action: "Finalizar" },
   completed: { label: "Finalizado", color: "bg-status-completed" },
+  cancelled: { label: "Cancelado", color: "bg-status-cancelled" },
 };
+
+const defaultStatus = { label: "Desconhecido", color: "bg-muted", next: undefined, action: undefined };
 
 const statusBorderColors: Record<string, string> = {
   new: "border-l-status-new", confirmed: "border-l-status-confirmed", preparing: "border-l-status-preparing",
   ready: "border-l-status-ready", delivery: "border-l-status-delivery", completed: "border-l-status-completed",
+  cancelled: "border-l-status-cancelled",
 };
 
-const filterLabels: Record<string, string> = { all: "Todos", new: "Novo", confirmed: "Confirmado", preparing: "Preparando", ready: "Pronto", delivery: "Entrega", completed: "Finalizado" };
+const filterLabels: Record<string, string> = { all: "Todos", new: "Novo", confirmed: "Confirmado", preparing: "Preparando", ready: "Pronto", delivery: "Entrega", completed: "Finalizado", cancelled: "Cancelado" };
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -96,20 +100,23 @@ export default function DeliveryOrders() {
 
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
-          {filtered.map((order) => (
+          {filtered.map((order) => {
+            const cfg = statusConfig[order.status] || defaultStatus;
+            const borderColor = statusBorderColors[order.status] || "border-l-muted";
+            return (
             <motion.div key={order.id} layout initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              className={`bg-admin-card border border-admin-card-border rounded-xl overflow-hidden border-l-4 ${statusBorderColors[order.status]}`}>
+              className={`bg-admin-card border border-admin-card-border rounded-xl overflow-hidden border-l-4 ${borderColor}`}>
               <div className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-foreground">#{order.id.slice(0, 8)}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full text-white ${statusConfig[order.status].color}`}>{statusConfig[order.status].label}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full text-white ${cfg.color}`}>{cfg.label}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{timeAgo(order.created_at)}</span>
                 </div>
                 <p className="text-sm font-semibold text-foreground">{order.customer_name}</p>
                 <div className="space-y-1 border-t border-admin-card-border pt-2">
-                  {order.items.map((item, j) => (
+                  {(order.items || []).map((item, j) => (
                     <div key={j} className="flex justify-between text-xs text-foreground">
                       <span>{item.qty}x {item.name}</span>
                       <span>R${(item.qty * item.price).toFixed(2).replace(".", ",")}</span>
@@ -120,14 +127,15 @@ export default function DeliveryOrders() {
                   <span className="text-sm font-bold text-foreground">Total</span>
                   <span className="text-sm font-bold text-primary">R${order.total.toFixed(2).replace(".", ",")}</span>
                 </div>
-                {statusConfig[order.status].next && (
+                {cfg.next && (
                   <Button onClick={() => advanceStatus(order)} className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-semibold rounded-xl">
-                    <Check size={16} className="mr-1" /> {statusConfig[order.status].action}
+                    <Check size={16} className="mr-1" /> {cfg.action}
                   </Button>
                 )}
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </AnimatePresence>
       </div>
     </div>

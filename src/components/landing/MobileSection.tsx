@@ -19,7 +19,7 @@ export function MobileSection() {
             Gerencie tudo pelo celular
           </h2>
           <p className="text-lg text-foreground-muted mb-8">
-            Acesse o painel do Peddi de qualquer lugar, a qualquer hora.
+            Acesse o painel do FoodWaker de qualquer lugar, a qualquer hora.
           </p>
           <ul className="flex flex-col gap-4">
             {benefits.map((b, i) => (
@@ -76,7 +76,7 @@ export function MobileSection() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground">P</div>
-                    <span className="text-xs font-bold text-foreground">Peddi Dashboard</span>
+                    <span className="text-xs font-bold text-foreground">FoodWaker Dashboard</span>
                   </div>
 
                   {/* Stats */}

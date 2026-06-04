@@ -127,7 +127,7 @@ export function SalesBoostSection() {
             transition={{ delay: 0.1, duration: 0.5 }}
             className="text-lg text-foreground-muted max-w-2xl mx-auto"
           >
-            Enquanto você foca na cozinha, o Peddi trabalha para aumentar cada venda automaticamente.
+            Enquanto você foca na cozinha, o FoodWaker trabalha para aumentar cada venda automaticamente.
           </motion.p>
         </div>
 
@@ -147,7 +147,7 @@ export function SalesBoostSection() {
               <h3 className="font-display font-bold text-foreground text-lg">Aumento de ticket médio automático</h3>
             </div>
             <p className="text-sm text-foreground-muted leading-relaxed mb-4">
-              Quando um cliente pede um hambúrguer, o Peddi automaticamente pergunta: "Que tal adicionar uma batata frita e uma Coca por apenas R$12 a mais?" — exatamente como faria um bom atendente.
+              Quando um cliente pede um hambúrguer, o FoodWaker automaticamente pergunta: "Que tal adicionar uma batata frita e uma Coca por apenas R$12 a mais?" — exatamente como faria um bom atendente.
             </p>
 
             <MiniChat
@@ -185,7 +185,7 @@ export function SalesBoostSection() {
             <div className="mt-4 p-3 rounded-xl bg-background/50 border border-border-subtle space-y-3">
               <div className="flex items-center gap-2 text-xs text-foreground-muted">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-                Peddi enviou mensagem automática para 47 clientes inativos
+                FoodWaker enviou mensagem automática para 47 clientes inativos
               </div>
               <div className="px-3 py-2 rounded-lg bg-surface-2 border border-border-subtle">
                 <p className="text-xs text-foreground">Oi João! 👋 Faz um tempo que você não nos visita. Que tal 15% OFF no seu próximo pedido? Use o código: <span className="text-primary font-bold">VOLTEI15</span></p>
@@ -224,7 +224,7 @@ export function SalesBoostSection() {
             <h3 className="font-display font-bold text-foreground text-lg">Sugestão inteligente no momento certo</h3>
           </div>
           <p className="text-sm text-foreground-muted leading-relaxed mb-8 max-w-2xl">
-            Na hora de fechar o pedido, o Peddi sugere itens complementares de forma natural — como um atendente experiente faria. Sem ser invasivo, sem parecer robô.
+            Na hora de fechar o pedido, o FoodWaker sugere itens complementares de forma natural — como um atendente experiente faria. Sem ser invasivo, sem parecer robô.
           </p>
 
           {/* Timeline — Desktop (horizontal) */}

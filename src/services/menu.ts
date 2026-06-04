@@ -24,6 +24,16 @@ export async function createCategory(restaurantId: string, name: string, emoji?:
   return data;
 }
 
+export async function updateCategory(categoryId: string, data: { name?: string; emoji?: string }): Promise<void> {
+  const { error } = await supabase.from("menu_categories").update(data).eq("id", categoryId);
+  if (error) throw error;
+}
+
+export async function deleteCategory(categoryId: string): Promise<void> {
+  const { error } = await supabase.from("menu_categories").delete().eq("id", categoryId);
+  if (error) throw error;
+}
+
 export async function listMenuItems(restaurantId: string): Promise<MenuItem[]> {
   const { data, error } = await supabase
     .from("menu_items")

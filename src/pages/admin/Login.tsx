@@ -83,7 +83,7 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
-          <img src={peddiLogoWhite} alt="Peddi" className="h-10" />
+          <img src={peddiLogoWhite} alt="FoodWaker" className="h-10" />
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-6">

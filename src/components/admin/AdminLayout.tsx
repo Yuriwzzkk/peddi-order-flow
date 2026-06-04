@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, MessageCircle, Users, MoreHorizontal, UtensilsCrossed, BarChart3, Bot, Settings, Bell, UsersRound, Share2 } from "lucide-react";
+import { LayoutDashboard, ClipboardList, MessageCircle, Users, MoreHorizontal, UtensilsCrossed, BarChart3, Bot, Settings, Bell, UsersRound, CreditCard } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +20,7 @@ const moreNavItems = [
   { to: "/admin/equipe", icon: UsersRound, label: "Equipe" },
   { to: "/admin/relatorios", icon: BarChart3, label: "Relatórios" },
   { to: "/admin/automacao", icon: Bot, label: "Automação" },
-  { to: "/admin/n8n", icon: Share2, label: "n8n" },
+  { to: "/admin/billing", icon: CreditCard, label: "Assinatura" },
   { to: "/admin/configuracoes", icon: Settings, label: "Configurações" },
 ];
 
@@ -40,10 +40,14 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (!profile?.restaurant_id) return;
-    supabase.from("restaurants").select("name").eq("id", profile.restaurant_id).single().then(r => {
+    supabase.from("restaurants").select("name, onboarding_completed").eq("id", profile.restaurant_id).single().then(r => {
       if (r.data?.name) setRestaurantName(r.data.name);
+      // Redireciona para onboarding wizard se for primeira vez
+      if (r.data && r.data.onboarding_completed === false && location.pathname !== "/onboarding") {
+        navigate("/onboarding", { replace: true });
+      }
     }).catch(() => {});
-  }, [profile?.restaurant_id]);
+  }, [profile?.restaurant_id, location.pathname, navigate]);
 
   const isActive = (path: string, end?: boolean) => {
     if (end) return location.pathname === path;
@@ -55,7 +59,7 @@ export default function AdminLayout() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-60 bg-admin-nav border-r border-admin-card-border fixed inset-y-0 left-0 z-40">
         <div className="p-4 border-b border-admin-card-border flex items-center gap-3">
-          <img src={peddiLogoWhite} alt="Peddi" className="h-8" />
+          <img src={peddiLogoWhite} alt="FoodWaker" className="h-8" />
         </div>
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {allNavItems.map((item) => (
@@ -91,7 +95,7 @@ export default function AdminLayout() {
       <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
         <header className="sticky top-0 z-30 bg-admin-nav/95 backdrop-blur-md border-b border-admin-card-border px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={peddiLogoWhite} alt="Peddi" className="h-7 md:hidden" />
+            <img src={peddiLogoWhite} alt="FoodWaker" className="h-7 md:hidden" />
             <span className="text-sm text-muted-foreground hidden sm:block">{restaurantName}</span>
           </div>
           <div className="flex items-center gap-3">

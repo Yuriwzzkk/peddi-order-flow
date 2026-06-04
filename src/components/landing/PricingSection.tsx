@@ -75,10 +75,10 @@ export function PricingSection() {
           </ul>
 
           <a
-            href="#cta"
+            href="/checkout?plan=starter"
             className="block text-center px-6 py-3 text-sm font-bold rounded-lg border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-200"
           >
-            Começar teste grátis
+            Começar agora
           </a>
         </motion.div>
 
@@ -110,12 +110,12 @@ export function PricingSection() {
           </ul>
 
           <a
-            href="#cta"
+            href="/checkout?plan=pro"
             className="block text-center px-6 py-3 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover hover:shadow-[0_0_24px_hsla(18,100%,58%,0.4)] transition-all duration-200"
           >
-            Começar teste grátis
+            Começar agora
           </a>
-          <p className="text-center text-xs text-foreground-muted mt-3">3 dias grátis · sem cartão de crédito</p>
+          <p className="text-center text-xs text-foreground-muted mt-3">Pagamento via PIX · 3 dias grátis após configurar</p>
         </motion.div>
       </div>
 

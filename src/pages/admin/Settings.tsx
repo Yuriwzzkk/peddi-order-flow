@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Store, Smartphone, Clock, CreditCard, Bell, Lock, Save, Upload, LogOut } from "lucide-react";
+import { Store, Smartphone, Clock, CreditCard, Save, Upload, LogOut, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -21,24 +21,17 @@ const WEEKDAYS = [
 ];
 
 const PAYMENT_OPTIONS = [
-  { value: "pix", label: "PIX", icon: "📱" },
   { value: "card", label: "Cartão", icon: "💳" },
-  { value: "cash", label: "Dinheiro", icon: "💵" },
-  { value: "debit", label: "Débito", icon: "💳" },
-  { value: "credit", label: "Crédito", icon: "💳" },
 ];
 
-const TONES = [
-  { value: "friendly", label: "Amigável", emoji: "😊" },
-  { value: "casual", label: "Descontraído", emoji: "😎" },
-  { value: "formal", label: "Formal", emoji: "🎩" },
-];
 
 export default function Settings() {
   const { profile, signOut } = useAuth();
   const restaurantId = profile?.restaurant_id;
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [settings, setSettings] = useState<any>(null);
+  const [zapiConfig, setZapiConfig] = useState<{ id?: string; api_token: string; instance_id: string; active: boolean }>({ api_token: "", instance_id: "", active: false });
+  const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -47,12 +40,14 @@ export default function Settings() {
   const loadData = useCallback(async () => {
     if (!restaurantId) return;
     try {
-      const [r, s] = await Promise.all([
+      const [r, s, z] = await Promise.all([
         supabase.from("restaurants").select("*").eq("id", restaurantId).single(),
         supabase.from("restaurant_settings").select("*").eq("restaurant_id", restaurantId).maybeSingle(),
+        supabase.from("zapi_config").select("*").eq("restaurant_id", restaurantId).maybeSingle(),
       ]);
       if (r.data) setRestaurant(r.data);
       if (s.data) setSettings(s.data);
+      if (z.data) setZapiConfig({ id: z.data.id, api_token: z.data.api_token || "", instance_id: z.data.instance_id || "", active: z.data.active || false });
     } catch {
       toast.error("Erro ao carregar configurações");
     } finally {
@@ -97,6 +92,28 @@ export default function Settings() {
     }
   };
 
+  const saveZapi = async () => {
+    if (!restaurantId) return;
+    setSaving("zapi");
+    try {
+      const payload: any = {
+        restaurant_id: restaurantId,
+        api_token: zapiConfig.api_token,
+        instance_id: zapiConfig.instance_id,
+        active: zapiConfig.active,
+      };
+      if (zapiConfig.id) payload.id = zapiConfig.id;
+      const { data, error } = await supabase.from("zapi_config").upsert(payload).select().single();
+      if (error) throw error;
+      setZapiConfig(prev => ({ ...prev, id: data.id }));
+      toast.success("Configuração Z-API salva!");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao salvar Z-API");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !restaurantId) return;
@@ -124,8 +141,6 @@ export default function Settings() {
       { key: "hours", icon: Clock, label: "Horário de funcionamento", desc: `${restaurant?.business_hours?.abre || "??"} às ${restaurant?.business_hours?.fecha || "??"}`, badge: null },
       { key: "payments", icon: CreditCard, label: "Formas de pagamento", desc: (settings?.payment_methods || ["pix"]).join(", "), badge: null },
       { key: "whatsapp", icon: Smartphone, label: "WhatsApp", desc: restaurant?.whatsapp_number || "Não configurado", badge: restaurant?.whatsapp_number ? "Conectado" : null, badgeColor: restaurant?.whatsapp_number ? "text-status-ready" : "text-muted-foreground" },
-      { key: "bot", icon: Bell, label: "Tom do chatbot", desc: restaurant?.bot_tone || "friendly", badge: null },
-      { key: "security", icon: Lock, label: "Segurança", desc: `Atendentes: ${profile?.name || "N/A"}`, badge: null },
     ];
 
     return (
@@ -263,35 +278,46 @@ export default function Settings() {
                 <label className="text-xs text-muted-foreground block mb-1">Número do WhatsApp (com DDI, ex: 5511999999999)</label>
                 <Input value={restaurant?.whatsapp_number || ""} onChange={e => setRestaurant(prev => prev ? { ...prev, whatsapp_number: e.target.value } : null)} placeholder="5511999999999" />
               </div>
-              <div className="bg-secondary rounded-lg p-3 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Configuração Z-API</p>
-                <p>Configure o token e instance_id do Z-API na tela de Conversas ou diretamente no banco (tabela zapi_config).</p>
+              <Separator />
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-2">Configuração Z-API</p>
+                <p className="text-xs text-muted-foreground mb-3">Credenciais da instância Z-API que envia e recebe as mensagens do bot.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Instance ID</label>
+                    <Input value={zapiConfig.instance_id} onChange={e => setZapiConfig(p => ({ ...p, instance_id: e.target.value }))} placeholder="Ex: 3A0BC..." />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">API Token</label>
+                    <div className="relative">
+                      <Input type={showToken ? "text" : "password"} value={zapiConfig.api_token} onChange={e => setZapiConfig(p => ({ ...p, api_token: e.target.value }))} placeholder="Ex: AB12CD..." />
+                      <button type="button" onClick={() => setShowToken(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-secondary">
+                    <div>
+                      <p className="text-sm text-foreground">Integração ativa</p>
+                      <p className="text-xs text-muted-foreground">Permite enviar e receber mensagens via Z-API</p>
+                    </div>
+                    <button
+                      onClick={() => setZapiConfig(p => ({ ...p, active: !p.active }))}
+                      className={`w-12 h-6 rounded-full transition-colors ${zapiConfig.active ? "bg-primary" : "bg-muted"}`}
+                    >
+                      <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${zapiConfig.active ? "translate-x-6" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <Button onClick={() => saveRestaurant({ whatsapp_number: restaurant?.whatsapp_number || null })} disabled={saving === "restaurant"} className="w-full gap-2">
-                <Save size={16} /> {saving === "restaurant" ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-          </div>
-        );
-
-      case "bot":
-        return (
-          <div className="space-y-4">
-            <button onClick={() => setActiveSection(null)} className="text-sm text-primary hover:underline">← Voltar</button>
-            <h2 className="text-lg font-bold">Tom do chatbot</h2>
-            <div className="bg-admin-card border border-admin-card-border rounded-xl p-4 space-y-4">
-              <div className="space-y-2">
-                {TONES.map(t => (
-                  <button key={t.value} onClick={() => setRestaurant(prev => prev ? { ...prev, bot_tone: t.value } : null)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${restaurant?.bot_tone === t.value ? "bg-primary/20 text-primary border border-primary/30" : "bg-secondary text-muted-foreground border border-transparent"}`}>
-                    <span className="text-lg">{t.emoji}</span>
-                    <div className="text-left"><p className="font-medium">{t.label}</p></div>
-                  </button>
-                ))}
+              <div className="flex gap-2">
+                <Button onClick={() => saveRestaurant({ whatsapp_number: restaurant?.whatsapp_number || null })} disabled={saving === "restaurant"} className="flex-1 gap-2">
+                  <Save size={16} /> {saving === "restaurant" ? "Salvando..." : "Salvar número"}
+                </Button>
+                <Button onClick={saveZapi} disabled={saving === "zapi"} className="flex-1 gap-2">
+                  <Save size={16} /> {saving === "zapi" ? "Salvando..." : "Salvar Z-API"}
+                </Button>
               </div>
-              <Button onClick={() => saveRestaurant({ bot_tone: restaurant?.bot_tone || "friendly" })} disabled={saving === "restaurant"} className="w-full gap-2">
-                <Save size={16} /> {saving === "restaurant" ? "Salvando..." : "Salvar tom"}
-              </Button>
             </div>
           </div>
         );

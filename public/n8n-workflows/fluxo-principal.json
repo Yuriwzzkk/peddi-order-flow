@@ -1,0 +1,723 @@
+{
+  "name": "🤖 Fluxo Principal — Peddi Order",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "peddi-whatsapp-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "📩 Webhook Trigger (WhatsApp)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst telefone = (body.telefone || body.from || '').toString().replace(/[^0-9]/g, '');\nconst mensagem = (body.mensagem || body.message || body.text || '').toString().trim().toLowerCase();\nconst restaurante_id = body.restaurante_id || body.business_id || '';\n\nreturn {\n  telefone,\n  mensagem,\n  restaurante_id,\n  message_type: body.type || 'text',\n  raw: body\n};"
+      },
+      "name": "🔧 1. Normalizar entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sessoes?cliente_id=eq.{{ $json.telefone }}&restaurante_id=eq.{{ $json.restaurante_id }}&status=eq.ativa&select=*",
+        "authentication": "genericCredentialType",
+        "sendQuery": false,
+        "sendBody": false,
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🔎 2. Buscar sessão ativa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessions = $input.first().json;\nif (Array.isArray(sessions) && sessions.length > 0) {\n  return { session: sessions[0], exists: true };\n}\nreturn { session: null, exists: false };"
+      },
+      "name": "🔧 2b. Verificar se sessão existe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.exists }}", "value2": "true" }
+          ]
+        }
+      },
+      "name": "❓ Sessão existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sessoes",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "restaurante_id", "value": "={{ $json.restaurante_id }}" },
+            { "name": "cliente_id", "value": "={{ $json.telefone }}" },
+            { "name": "etapa_atual", "value": "inicio" },
+            { "name": "carrinho", "value": "[]" },
+            { "name": "bump_ofertado", "value": "false" },
+            { "name": "upsell_ofertado", "value": "false" },
+            { "name": "downsell_ofertado", "value": "false" },
+            { "name": "status", "value": "ativa" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        }
+      },
+      "name": "🆕 2c. Criar nova sessão",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/restaurantes?id=eq.{{ $json.restaurante_id }}&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🏪 3. Buscar restaurante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst restaurante = Array.isArray(data) ? data[0] : data;\nconst agora = new Date();\nconst horaAtual = agora.getHours() * 60 + agora.getMinutes();\n\nfunction toMinutos(h) {\n  if (!h) return null;\n  const partes = h.split(':').map(Number);\n  return partes[0] * 60 + (partes[1] || 0);\n}\n\nconst abertura = toMinutos(restaurante.horario_abertura);\nconst fechamento = toMinutos(restaurante.horario_fechamento);\n\nlet aberto = true;\nlet motivo = '';\n\nif (!restaurante.ativo) {\n  aberto = false;\n  motivo = 'Estamos fechados no momento! Aguarde nosso retorno. 😊';\n} else if (abertura !== null && fechamento !== null) {\n  if (horaAtual < abertura || horaAtual > fechamento) {\n    aberto = false;\n    motivo = `Estamos fechados! Abrimos às ${restaurante.horario_abertura}. 😊`;\n  }\n}\n\nreturn {\n  restaurante,\n  aberto,\n  motivo,\n  horaAtual,\n  abertura,\n  fechamento\n};"
+      },
+      "name": "🔧 3b. Validar horário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1500, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.aberto }}", "value2": "true" }
+          ]
+        }
+      },
+      "name": "❓ Está aberto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n// Enviar mensagem de fechado via Z-API\nconst telefone = data.telefone || data.cliente?.telefone;\nconst message = data.motivo || 'Estamos fechados! 😊';\n\n// This node signals the webhook response\nreturn {\n  to: telefone,\n  message,\n  action: 'send_message'\n};"
+      },
+      "name": "🚫 Enviar fora do horário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2000, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge session data with input\nconst input = $input.first().json;\nconst sessionData = $('🔎 2. Buscar sessão ativa').first().json;\nconst session = Array.isArray(sessionData) && sessionData.length > 0 ? sessionData[0] : null;\n\nconst menuMsg = input.mensagem;\nconst etapa = session?.etapa_atual || 'inicio';\nconst carrinho = session?.carrinho || [];\n\n// Comandos globais\nif (menuMsg === 'cancelar') {\n  return { acao: 'cancelar', etapa, carrinho };\n}\n\nswitch (etapa) {\n  case 'inicio': return { acao: 'boas_vindas', etapa, carrinho };\n  case 'menu': return { acao: 'categoria', etapa, carrinho, opcao: menuMsg };\n  case 'categoria': return { acao: 'adicionar_item', etapa, carrinho, opcao: menuMsg };\n  case 'bump': return { acao: 'resposta_bump', etapa, carrinho, opcao: menuMsg };\n  case 'carrinho':\n    if (menuMsg === '2') return { acao: 'upsell', etapa, carrinho };\n    return { acao: 'adicionar_mais', etapa, carrinho };\n  case 'upsell':\n    if (menuMsg === '1') return { acao: 'aceitar_upsell', etapa, carrinho };\n    return { acao: 'downsell', etapa, carrinho };\n  case 'downsell':\n    if (menuMsg === '1') return { acao: 'aceitar_downsell', etapa, carrinho };\n    return { acao: 'localizacao', etapa, carrinho };\n  case 'localizacao': return { acao: 'coletar_pagamento', etapa, carrinho, localizacao: menuMsg };\n  case 'pagamento': return { acao: 'confirmar', etapa, carrinho, pagamento: input.pagamento || menuMsg };\n  case 'confirmacao':\n    if (menuMsg === '1') return { acao: 'handoff', etapa, carrinho };\n    if (menuMsg === '2') return { acao: 'editar', etapa, carrinho };\n    return { acao: 'cancelar', etapa, carrinho };\n  default: return { acao: 'menu', etapa, carrinho };\n}"
+      },
+      "name": "🔀 4. Roteador principal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1500, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{ $json.acao }}", "value2": "boas_vindas" }
+          ]
+        }
+      },
+      "name": "❓ Rota: Boas-vindas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/clientes?telefone=eq.{{ $json.telefone }}&restaurante_id=eq.{{ $json.restaurante_id }}&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "👤 5. Buscar/cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const clienteData = $input.first().json;\nconst cliente = Array.isArray(clienteData) ? clienteData[0] : clienteData;\nconst restaurante = $('🏪 3. Buscar restaurante').first().json;\nconst r = Array.isArray(restaurante) ? restaurante[0] : restaurante;\nconst nomeRestaurante = r?.nome || 'Restaurante';\n\nlet message = '';\nlet isNovo = false;\n\nif (!cliente || cliente.total_pedidos === 0) {\n  isNovo = true;\n  message = `Bem-vindo(a) ao ${nomeRestaurante}! 👋\\n\\nSomos especialistas em deliver! 😊\\n\\n1️⃣ Ver cardápio\\n2️⃣ Repetir último pedido\\n3️⃣ Falar com atendente`;\n} else {\n  message = `Olá ${cliente.nome}! Que bom ter você de volta! 😊\\n\\n1️⃣ Ver cardápio\\n2️⃣ Repetir último pedido\\n3️⃣ Falar com atendente`;\n}\n\nreturn { message, isNovo, nome: cliente?.nome || '', total_pedidos: cliente?.total_pedidos || 0 };"
+      },
+      "name": "💬 5b. Montar boas-vindas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2250, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/cardapio?restaurante_id=eq.{{ $json.restaurante_id }}&disponivel=eq.true&select=distinct.categoria",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "📋 6. Cardápio dinâmico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2000, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const categorias = $input.first().json;\nconst lista = Array.isArray(categorias) ? categorias : [];\n\nlet message = '🍽️ Cardápio:\\n\\n';\nlista.forEach((cat, i) => {\n  message += `${i + 1}️⃣ ${cat.categoria}\\n`;\n});\nmessage += '\\n0️⃣ Voltar';\n\nreturn {\n  message,\n  categorias: lista,\n  categoria_atual: null\n};"
+      },
+      "name": "💬 6b. Montar lista categorias",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/cardapio?restaurante_id=eq.{{ $json.restaurante_id }}&disponivel=eq.true&order=nome.asc",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🍔 7. Buscar itens do cardápio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const itens = $input.first().json;\nconst lista = Array.isArray(itens) ? itens : [];\nconst opcao = parseInt($('🔀 4. Roteador principal').first().json.opcao) - 1;\nconst categorias = $('📋 6. Cardápio dinâmico').first().json;\nconst cats = Array.isArray(categorias) ? categorias : [];\n\n// Se estamos na etapa categoria, filtra pela categoria escolhida\nconst etapa = $('🔀 4. Roteador principal').first().json.etapa;\n\nlet itensFiltrados;\nif (etapa === 'categoria' && cats[opcao]) {\n  const catNome = cats[opcao].categoria;\n  itensFiltrados = lista.filter(i => i.categoria === catNome);\n} else {\n  itensFiltrados = lista;\n}\n\nlet message = 'Itens disponíveis:\\n\\n';\nitensFiltrados.forEach((item, i) => {\n  message += `${i + 1}️⃣ ${item.nome} — R$ ${item.preco.toFixed(2)}\\n`;\n  if (item.descricao) message += `   ${item.descricao}\\n`;\n});\nmessage += '\\n0️⃣ Voltar';\n\nreturn {\n  message,\n  itens: itensFiltrados,\n  item_escolhido: null\n};"
+      },
+      "name": "💬 7b. Montar lista itens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2500, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const itens = $('🍔 7. Buscar itens do cardápio').first().json;\nconst lista = Array.isArray(itens) ? itens : [];\nconst opcao = parseInt($('🔀 4. Roteador principal').first().json.opcao || '0');\nconst carrinhoAtual = $('🔀 4. Roteador principal').first().json.carrinho || [];\n\nif (opcao <= 0 || opcao > lista.length) {\n  return { acao: 'invalido', carrinho: carrinhoAtual };\n}\n\nconst itemEscolhido = lista[opcao - 1];\nconst novoCarrinho = [...carrinhoAtual, {\n  id: itemEscolhido.id,\n  nome: itemEscolhido.nome,\n  preco: itemEscolhido.preco,\n  categoria: itemEscolhido.categoria\n}];\n\n// Verificar se tem bump\nif (itemEscolhido.bump_sugerido_id) {\n  return {\n    acao: 'bump',\n    carrinho: novoCarrinho,\n    item_adicionado: itemEscolhido,\n    bump_id: itemEscolhido.bump_sugerido_id,\n    bump_preco: itemEscolhido.bump_preco,\n    bump_nome: ''\n  };\n}\n\nreturn {\n  acao: 'carrinho',\n  carrinho: novoCarrinho,\n  item_adicionado: itemEscolhido,\n  bump_id: null\n};"
+      },
+      "name": "➕ 7c. Adicionar item ao carrinho",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/cardapio?id=eq.{{ $json.bump_id }}&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🔍 Buscar bump sugerido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [3000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bumpData = $input.first().json;\nconst bump = Array.isArray(bumpData) ? bumpData[0] : bumpData;\n\nreturn {\n  message: `✅ Item adicionado!\\n\\n🔥 Por +R$ ${bump.preco.toFixed(2)} adicione ${bump.nome}!\\n\\n1️⃣ Sim\\n2️⃣ Não obrigado`,\n  bump_item: bump\n};"
+      },
+      "name": "💬 8a. Montar oferta bump",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst carrinhoAtual = $('🔀 4. Roteador principal').first().json.carrinho || [];\nconst opcao = $('🔀 4. Roteador principal').first().json.opcao || '';\n\nif (opcao === '1') {\n  // Aceitou bump\n  const bumpItem = $('🔍 Buscar bump sugerido').first().json;\n  const bump = Array.isArray(bumpItem) ? bumpItem[0] : bumpItem;\n  const novoCarrinho = [...carrinhoAtual, {\n    id: bump.id,\n    nome: `${bump.nome} (bump)`,\n    preco: bump.preco,\n    categoria: bump.categoria\n  }];\n\n  return {\n    acao: 'carrinho',\n    carrinho: novoCarrinho,\n    message: 'Ótimo! Adicionado! 🎉\\n\\n1️⃣ Adicionar mais\\n2️⃣ Fechar pedido',\n    bump_aceito: true\n  };\n}\n\nreturn {\n  acao: 'carrinho',\n  carrinho: carrinhoAtual,\n  message: 'Tudo bem! 😊\\n\\n1️⃣ Adicionar mais\\n2️⃣ Fechar pedido',\n  bump_aceito: false\n};"
+      },
+      "name": "🔧 8b. Processar resposta bump",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3000, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const carrinho = $('🔀 4. Roteador principal').first().json.carrinho || [];\nconst sessionData = $('🔎 2. Buscar sessão ativa').first().json;\nconst session = Array.isArray(sessionData) && sessionData.length > 0 ? sessionData[0] : null;\n\n// Verificar upsell já ofertado\nif (session?.upsell_ofertado) {\n  return { acao: 'pular_upsell', carrinho, upsell_ofertado: true };\n}\n\nconst restauranteData = $('🏪 3. Buscar restaurante').first().json;\nconst restaurante = Array.isArray(restauranteData) ? restauranteData[0] : restauranteData;\nconst ticketMedio = restaurante?.ticket_medio || 30;\n\nconst totalAtual = carrinho.reduce((sum, item) => sum + (item.preco || 0), 0);\n\nif (totalAtual < ticketMedio) {\n  // Buscar item de upsell\n  return {\n    acao: 'oferecer_upsell',\n    carrinho,\n    totalAtual,\n    diferenca: ticketMedio - totalAtual,\n    upsell_ofertado: false\n  };\n}\n\nreturn { acao: 'pular_upsell', carrinho, upsell_ofertado: false };"
+      },
+      "name": "💸 9. Verificar upsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 600]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/cardapio?restaurante_id=eq.{{ $json.restaurante_id }}&disponivel=eq.true&order=preco.desc&limit=1&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🔍 Buscar item upsell",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [3000, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const upsellData = $input.first().json;\nconst upsell = Array.isArray(upsellData) ? upsellData[0] : upsellData;\nconst diff = $('💸 9. Verificar upsell').first().json.diferenca;\n\nif (!upsell) {\n  return { acao: 'pular_upsell', message: '' };\n}\n\nreturn {\n  acao: 'mostrar_upsell',\n  message: `🍔 Que tal completar seu pedido?\\n\\nAdicione ${upsell.nome} por apenas R$ ${upsell.preco.toFixed(2)}!\\n\\n1️⃣ Aceitar\\n2️⃣ Não obrigado`,\n  upsell_item: upsell\n};"
+      },
+      "name": "💬 9b. Montar oferta upsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3250, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const opcao = $('🔀 4. Roteador principal').first().json.opcao || '';\nconst carrinhoAtual = $('💸 9. Verificar upsell').first().json.carrinho || [];\n\nif (opcao === '1') {\n  const upsellItem = $('🔍 Buscar item upsell').first().json;\n  const item = Array.isArray(upsellItem) ? upsellItem[0] : upsellItem;\n  const novoCarrinho = [...carrinhoAtual, {\n    id: item.id,\n    nome: `${item.nome} (upsell)`,\n    preco: item.preco,\n    categoria: item.categoria\n  }];\n\n  return {\n    acao: 'localizacao',\n    carrinho: novoCarrinho,\n    message: '',\n    upsell_aceito: true\n  };\n}\n\nreturn {\n  acao: 'downsell',\n  carrinho: carrinhoAtual,\n  message: '',\n  upsell_aceito: false\n};"
+      },
+      "name": "🔧 9c. Processar resposta upsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3500, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionData = $('🔎 2. Buscar sessão ativa').first().json;\nconst session = Array.isArray(sessionData) && sessionData.length > 0 ? sessionData[0] : null;\nconst carrinhoAtual = $('🔀 4. Roteador principal').first().json.carrinho || [];\n\nif (session?.downsell_ofertado) {\n  return { acao: 'pular_downsell', carrinho: carrinhoAtual };\n}\n\nreturn {\n  acao: 'oferecer_downsell',\n  carrinho: carrinhoAtual,\n  downsell_ofertado: false\n};"
+      },
+      "name": "💸 10. Verificar downsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 800]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/cardapio?restaurante_id=eq.{{ $json.restaurante_id }}&disponivel=eq.true&order=preco.asc&limit=1&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🔍 Buscar item downsell",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [3000, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "const downsellData = $input.first().json;\nconst downsell = Array.isArray(downsellData) ? downsellData[0] : downsellData;\n\nif (!downsell) {\n  return { acao: 'pular_downsell', message: '' };\n}\n\nreturn {\n  acao: 'mostrar_downsell',\n  message: `😊 Tudo bem! Que tal experimentar ${downsell.nome} por apenas R$ ${downsell.preco.toFixed(2)}?\\n\\n1️⃣ Sim\\n2️⃣ Não, quero finalizar`,\n  downsell_item: downsell\n};"
+      },
+      "name": "💬 10b. Montar oferta downsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3250, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "const opcao = $('🔀 4. Roteador principal').first().json.opcao || '';\nconst carrinhoAtual = $('💸 10. Verificar downsell').first().json.carrinho || [];\n\nif (opcao === '1') {\n  const downsellItem = $('🔍 Buscar item downsell').first().json;\n  const item = Array.isArray(downsellItem) ? downsellItem[0] : downsellItem;\n  const novoCarrinho = [...carrinhoAtual, {\n    id: item.id,\n    nome: `${item.nome} (downsell)`,\n    preco: item.preco,\n    categoria: item.categoria\n  }];\n\n  return {\n    acao: 'localizacao',\n    carrinho: novoCarrinho,\n    message: '',\n    downsell_aceito: true\n  };\n}\n\nreturn {\n  acao: 'localizacao',\n  carrinho: carrinhoAtual,\n  message: '',\n  downsell_aceito: false\n};"
+      },
+      "name": "🔧 10c. Processar resposta downsell",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3500, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  message: '📍 Seu pedido é para:\\n\\n1️⃣ Entrega (delivery)\\n2️⃣ Retirada no balcão\\n\\n0️⃣ Voltar'\n};"
+      },
+      "name": "💬 11. Perguntar localização",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 1000]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst opcao = $('🔀 4. Roteador principal').first().json.opcao || '';\n\nlet tipo = '';\nlet message = '';\n\nif (opcao === '1') {\n  tipo = 'entrega';\n  message = '📍 Manda seu endereço: Rua, número, bairro';\n} else if (opcao === '2') {\n  tipo = 'retirada';\n  message = '🛍️ OK! Retirada no balcão!\\n\\nQual forma de pagamento?';\n}\n\nreturn { tipo, message, endereco: null };"
+      },
+      "name": "🔧 11b. Processar tipo entrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3000, 1000]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/restaurantes?id=eq.{{ $json.restaurante_id }}&select=formas_pagamento&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "💳 12. Buscar formas pagamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2750, 1200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pagData = $input.first().json;\nconst restaurante = Array.isArray(pagData) ? pagData[0] : pagData;\nconst formas = restaurante?.formas_pagamento || ['Pix', 'Dinheiro', 'Cartão', 'Débito'];\n\nlet message = '💳 Formas de pagamento:\\n\\n';\nformas.forEach((f, i) => {\n  message += `${i + 1}️⃣ ${f}\\n`;\n});nmessage += '\\n0️⃣ Voltar';\n\nreturn { message, formas };"
+      },
+      "name": "💬 12b. Montar menu pagamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3000, 1200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const opcaoIndex = parseInt($('🔀 4. Roteador principal').first().json.opcao || '0') - 1;\nconst formas = $('💬 12b. Montar menu pagamento').first().json.formas || [];\nconst pagamento = formas[opcaoIndex] || 'Pix';\n\nlet message = pagamento === 'Dinheiro' ? '💰 Troco para quanto?' : '';\n\nreturn { pagamento, precisa_troco: pagamento === 'Dinheiro', message };"
+      },
+      "name": "🔧 12c. Processar pagamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3250, 1200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const carrinho = $('🔀 4. Roteador principal').first().json.carrinho || [];\nconst restauranteData = $('🏪 3. Buscar restaurante').first().json;\nconst restaurante = Array.isArray(restauranteData) ? restauranteData[0] : restauranteData;\nconst tipo = $('🔧 11b. Processar tipo entrega').first().json.tipo;\nconst pagamento = $('🔧 12c. Processar pagamento').first().json.pagamento;\nconst troco = $('🔀 4. Roteador principal').first().json.opcao || null;\n\nconst totalItens = carrinho.reduce((sum, item) => sum + (item.preco || 0), 0);\nconst freteGratis = restaurante?.valor_frete_gratis || 50;\nconst frete = totalItens >= freteGratis ? 0 : (restaurante?.valor_minimo || 5);\nconst totalFinal = totalItens + frete;\n\nconst endereco = $('🔧 11b. Processar tipo entrega').first().json.endereco || 'A confirmar';\n\nlet resumo = `📋 RESUMO DO PEDIDO\\n\\n`;\ncarrinho.forEach((item, i) => {\n  resumo += `${i + 1}x ${item.nome} — R$ ${item.preco.toFixed(2)}\\n`;\n});\nresumo += `\\n💰 Total itens: R$ ${totalItens.toFixed(2)}`;\nresumo += `\\n🚚 Frete: ${frete === 0 ? 'GRÁTIS 🎉' : 'R$ ' + frete.toFixed(2)}`;\nresumo += `\\n💵 Total final: R$ ${totalFinal.toFixed(2)}`;\nresumo += `\\n📍 ${tipo === 'entrega' ? 'Entrega em: ' + endereco : 'Retirada no balcão'}`;\nresumo += `\\n💳 Pagamento: ${pagamento}`;\nif (troco) resumo += `\\n💰 Troco para: R$ ${troco}`;\nresumo += `\\n\\n1️⃣ ✅ Confirmar\\n2️⃣ ✏️ Editar\\n3️⃣ ❌ Cancelar`;\n\nreturn {\n  message: resumo,\n  total_itens: totalItens,\n  frete,\n  total_final: totalFinal,\n  tipo,\n  endereco,\n  pagamento,\n  troco\n};"
+      },
+      "name": "📋 13. Montar resumo + confirmação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 1400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionData = $('🔎 2. Buscar sessão ativa').first().json;\nconst session = Array.isArray(sessionData) && sessionData.length > 0 ? sessionData[0] : null;\nconst clienteData = $('👤 5. Buscar/cliente').first().json;\nconst cliente = Array.isArray(clienteData) ? clienteData[0] : clienteData;\nconst resumo = $('📋 13. Montar resumo + confirmação').first().json;\nconst bumps = resumo.itens?.filter(i => i.nome?.includes('(bump)')) || [];\n\nconst pedido = {\n  restaurante_id: $json.restaurante_id,\n  cliente_id: cliente?.id || $json.telefone,\n  itens: (resumo.itens || []).map(i => ({\n    nome: i.nome?.replace(' (bump)', '').replace(' (upsell)', '').replace(' (downsell)', ''),\n    preco: i.preco\n  })),\n  bumps: bumps.map(b => ({ nome: b.nome, preco: b.preco })),\n  upsell: $('🔧 9c. Processar resposta upsell').first().json.upsell_aceito || false,\n  total: resumo.total_final,\n  tipo: resumo.tipo,\n  endereco: resumo.endereco,\n  pagamento: resumo.pagamento,\n  troco: resumo.troco,\n  status: 'aguardando_pagamento'\n};\n\nreturn { pedido, message: '' };"
+      },
+      "name": "📦 14. Montar payload pedido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3000, 1600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/pedidos",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "restaurante_id", "value": "={{ $json.pedido.restaurante_id }}" },
+            { "name": "cliente_id", "value": "={{ $json.pedido.cliente_id }}" },
+            { "name": "itens", "value": "={{ $json.pedido.itens }}" },
+            { "name": "bumps", "value": "={{ $json.pedido.bumps }}" },
+            { "name": "upsell", "value": "={{ $json.pedido.upsell }}" },
+            { "name": "total", "value": "={{ $json.pedido.total }}" },
+            { "name": "tipo", "value": "={{ $json.pedido.tipo }}" },
+            { "name": "endereco", "value": "={{ $json.pedido.endereco }}" },
+            { "name": "pagamento", "value": "={{ $json.pedido.pagamento }}" },
+            { "name": "troco", "value": "={{ $json.pedido.troco }}" },
+            { "name": "status", "value": "={{ $json.pedido.status }}" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        }
+      },
+      "name": "💾 14b. Salvar pedido no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [3250, 1600]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sessoes?id=eq.{{ $json.session_id }}",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "aguardando_pagamento" },
+            { "name": "etapa_atual", "value": "finalizado" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        }
+      },
+      "name": "🔄 14c. Atualizar sessão",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [3500, 1600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pedidoId = $('💾 14b. Salvar pedido no Supabase').first().json[0]?.id || '';\n\nreturn {\n  to: $json.telefone,\n  message: `✅ Pedido #${pedidoId.slice(0, 8)} recebido!\\n\\nUm atendente vai confirmar seu pagamento agora. Em breve você recebe a confirmação! 😊\\n\\nAcompanhe pelo WhatsApp. 🚀`\n};"
+      },
+      "name": "💬 14d. Mensagem confirmação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3750, 1600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionData = $('🔎 2. Buscar sessão ativa').first().json;\nconst session = Array.isArray(sessionData) && sessionData.length > 0 ? sessionData[0] : null;\n\nif (!session) {\n  return { message: 'Não entendi 😅 Digite o número da opção ou 1 para o cardápio.' };\n}\n\nreturn { message: 'Opção inválida! Digite o número da opção 😊' };"
+      },
+      "name": "💬 Opção inválida (default)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2000, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cancelar fluxo - resetar sessão\nreturn {\n  message: '❌ Pedido cancelado. Digite 1 para voltar ao cardápio! 😊'\n};"
+      },
+      "name": "💬 Cancelar fluxo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2000, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handoff manual para atendente\nreturn {\n  to: $json.telefone,\n  message: '🔁 Transferindo para um atendente...\\n\\nEm breve alguém vai te atender! 😊'\n};"
+      },
+      "name": "💬 Handoff atendente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2750, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Z-API send text\nconst config = $('📩 Webhook Trigger (WhatsApp)').first().json;\nconst body = $input.first().json;\n\nreturn {\n  url: 'https://api.z-api.io/instances/{{INSTANCE_ID}}/token/{{TOKEN}}/send-text',\n  body: {\n    phone: body.to || body.telefone,\n    message: body.message\n  }\n};"
+      },
+      "name": "📤 Enviar WhatsApp (Z-API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [4000, 100]
+    }
+  ],
+  "connections": {
+    "📩 Webhook Trigger (WhatsApp)": {
+      "main": [[{ "node": "🔧 1. Normalizar entrada", "type": "main", "index": 0 }]]
+    },
+    "🔧 1. Normalizar entrada": {
+      "main": [[{ "node": "🔎 2. Buscar sessão ativa", "type": "main", "index": 0 }]]
+    },
+    "🔎 2. Buscar sessão ativa": {
+      "main": [[{ "node": "🔧 2b. Verificar se sessão existe", "type": "main", "index": 0 }]]
+    },
+    "🔧 2b. Verificar se sessão existe": {
+      "main": [
+        [{ "node": "❓ Sessão existe?", "type": "main", "index": 0 }],
+        [{ "node": "🏪 3. Buscar restaurante", "type": "main", "index": 1 }]
+      ]
+    },
+    "❓ Sessão existe?": {
+      "main": [
+        [{ "node": "🔀 4. Roteador principal", "type": "main", "index": 0 }],
+        [{ "node": "🆕 2c. Criar nova sessão", "type": "main", "index": 1 }]
+      ]
+    },
+    "🆕 2c. Criar nova sessão": {
+      "main": [[{ "node": "🏪 3. Buscar restaurante", "type": "main", "index": 0 }]]
+    },
+    "🏪 3. Buscar restaurante": {
+      "main": [[{ "node": "🔧 3b. Validar horário", "type": "main", "index": 0 }]]
+    },
+    "🔧 3b. Validar horário": {
+      "main": [
+        [{ "node": "❓ Está aberto?", "type": "main", "index": 0 }]
+      ]
+    },
+    "❓ Está aberto?": {
+      "main": [
+        [{ "node": "🔀 4. Roteador principal", "type": "main", "index": 0 }],
+        [{ "node": "🚫 Enviar fora do horário", "type": "main", "index": 1 }]
+      ]
+    },
+    "🚫 Enviar fora do horário": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    },
+    "🔀 4. Roteador principal": {
+      "main": [
+        [{ "node": "❓ Rota: Boas-vindas?", "type": "main", "index": 0 }]
+      ]
+    },
+    "❓ Rota: Boas-vindas?": {
+      "main": [
+        [{ "node": "👤 5. Buscar/cliente", "type": "main", "index": 0 }],
+        [{ "node": "📋 6. Cardápio dinâmico", "type": "main", "index": 1 }]
+      ]
+    },
+    "👤 5. Buscar/cliente": {
+      "main": [[{ "node": "💬 5b. Montar boas-vindas", "type": "main", "index": 0 }]]
+    },
+    "💬 5b. Montar boas-vindas": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    },
+    "📋 6. Cardápio dinâmico": {
+      "main": [[{ "node": "💬 6b. Montar lista categorias", "type": "main", "index": 0 }]]
+    },
+    "💬 6b. Montar lista categorias": {
+      "main": [[{ "node": "🍔 7. Buscar itens do cardápio", "type": "main", "index": 0 }]]
+    },
+    "🍔 7. Buscar itens do cardápio": {
+      "main": [[{ "node": "💬 7b. Montar lista itens", "type": "main", "index": 0 }]]
+    },
+    "💬 7b. Montar lista itens": {
+      "main": [[{ "node": "➕ 7c. Adicionar item ao carrinho", "type": "main", "index": 0 }]]
+    },
+    "➕ 7c. Adicionar item ao carrinho": {
+      "main": [
+        [{ "node": "🔍 Buscar bump sugerido", "type": "main", "index": 0 }],
+        [{ "node": "💸 9. Verificar upsell", "type": "main", "index": 1 }]
+      ]
+    },
+    "🔍 Buscar bump sugerido": {
+      "main": [[{ "node": "💬 8a. Montar oferta bump", "type": "main", "index": 0 }]]
+    },
+    "💬 8a. Montar oferta bump": {
+      "main": [[{ "node": "🔧 8b. Processar resposta bump", "type": "main", "index": 0 }]]
+    },
+    "🔧 8b. Processar resposta bump": {
+      "main": [[{ "node": "💬 7b. Montar lista itens", "type": "main", "index": 0 }]]
+    },
+    "💸 9. Verificar upsell": {
+      "main": [
+        [{ "node": "🔍 Buscar item upsell", "type": "main", "index": 0 }],
+        [{ "node": "💬 11. Perguntar localização", "type": "main", "index": 1 }]
+      ]
+    },
+    "🔍 Buscar item upsell": {
+      "main": [[{ "node": "💬 9b. Montar oferta upsell", "type": "main", "index": 0 }]]
+    },
+    "💬 9b. Montar oferta upsell": {
+      "main": [[{ "node": "🔧 9c. Processar resposta upsell", "type": "main", "index": 0 }]]
+    },
+    "🔧 9c. Processar resposta upsell": {
+      "main": [
+        [{ "node": "💬 11. Perguntar localização", "type": "main", "index": 0 }],
+        [{ "node": "💸 10. Verificar downsell", "type": "main", "index": 1 }]
+      ]
+    },
+    "💸 10. Verificar downsell": {
+      "main": [
+        [{ "node": "🔍 Buscar item downsell", "type": "main", "index": 0 }],
+        [{ "node": "💬 11. Perguntar localização", "type": "main", "index": 1 }]
+      ]
+    },
+    "🔍 Buscar item downsell": {
+      "main": [[{ "node": "💬 10b. Montar oferta downsell", "type": "main", "index": 0 }]]
+    },
+    "💬 10b. Montar oferta downsell": {
+      "main": [[{ "node": "🔧 10c. Processar resposta downsell", "type": "main", "index": 0 }]]
+    },
+    "🔧 10c. Processar resposta downsell": {
+      "main": [[{ "node": "💬 11. Perguntar localização", "type": "main", "index": 0 }]]
+    },
+    "💬 11. Perguntar localização": {
+      "main": [[{ "node": "🔧 11b. Processar tipo entrega", "type": "main", "index": 0 }]]
+    },
+    "🔧 11b. Processar tipo entrega": {
+      "main": [[{ "node": "💳 12. Buscar formas pagamento", "type": "main", "index": 0 }]]
+    },
+    "💳 12. Buscar formas pagamento": {
+      "main": [[{ "node": "💬 12b. Montar menu pagamento", "type": "main", "index": 0 }]]
+    },
+    "💬 12b. Montar menu pagamento": {
+      "main": [[{ "node": "🔧 12c. Processar pagamento", "type": "main", "index": 0 }]]
+    },
+    "🔧 12c. Processar pagamento": {
+      "main": [[{ "node": "📋 13. Montar resumo + confirmação", "type": "main", "index": 0 }]]
+    },
+    "📋 13. Montar resumo + confirmação": {
+      "main": [
+        [{ "node": "📦 14. Montar payload pedido", "type": "main", "index": 0 }]
+      ]
+    },
+    "📦 14. Montar payload pedido": {
+      "main": [[{ "node": "💾 14b. Salvar pedido no Supabase", "type": "main", "index": 0 }]]
+    },
+    "💾 14b. Salvar pedido no Supabase": {
+      "main": [[{ "node": "🔄 14c. Atualizar sessão", "type": "main", "index": 0 }]]
+    },
+    "🔄 14c. Atualizar sessão": {
+      "main": [[{ "node": "💬 14d. Mensagem confirmação", "type": "main", "index": 0 }]]
+    },
+    "💬 14d. Mensagem confirmação": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "tags": ["peddi-order", "fluxo-principal", "delivery"]
+}

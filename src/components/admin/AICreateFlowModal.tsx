@@ -501,7 +501,7 @@ export default function AICreateFlowModal({ onClose, onFlowCreated }: Props) {
           <div className="px-4 py-3 border-b border-admin-card-border shrink-0">
             <div className="flex items-center gap-2">
               <Zap size={16} className="text-[hsl(var(--primary))]" />
-              <span className="text-sm font-semibold text-foreground">Assistente Peddi</span>
+              <span className="text-sm font-semibold text-foreground">Assistente FoodWaker</span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">Powered by IA</p>
           </div>

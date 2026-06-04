@@ -1,0 +1,141 @@
+{
+  "name": "⏰ Abertura e Fechamento Automático",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hour", "minuteInterval": 0 }]
+        }
+      },
+      "name": "⏰ Schedule: Todo dia 00:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/restaurantes?ativo=eq.true&select=id,nome,horario_abertura,horario_fechamento,whatsapp_number",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🏪 1. Buscar restaurantes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "arrayItem",
+        "options": {}
+      },
+      "name": "🔄 Loop: Restaurantes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const restaurante = $json;\nconst agora = new Date();\nconst horaAtual = agora.getHours() * 60 + agora.getMinutes();\n\nfunction toMin(h) {\n  if (!h) return null;\n  const p = h.split(':').map(Number);\n  return p[0] * 60 + (p[1] || 0);\n}\n\nconst abertura = toMin(restaurante.horario_abertura);\nconst fechamento = toMin(restaurante.horario_fechamento);\n\nif (!abertura || !fechamento) {\n  return { action: 'skip', restaurante };\n}\n\nconst dentroHorario = horaAtual >= abertura && horaAtual < fechamento;\n\n// No schedule das 00:00, verificar se deve abrir (se está dentro do horário)\n// Ou se deve fechar (se está fora)\n\nreturn {\n  action: dentroHorario ? 'abrir' : 'fechar',\n  restaurante,\n  horaAtual,\n  abertura,\n  fechamento\n};"
+      },
+      "name": "🔧 2. Verificar horário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{ $json.action }}", "value2": "abrir" }
+          ]
+        }
+      },
+      "name": "❓ Deve abrir?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/restaurantes?id=eq.{{ $json.restaurante.id }}",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "ativo", "value": "true" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        }
+      },
+      "name": "🔓 3a. Abrir restaurante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/restaurantes?id=eq.{{ $json.restaurante.id }}",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "ativo", "value": "false" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        }
+      },
+      "name": "🔒 3b. Fechar restaurante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    }
+  ],
+  "connections": {
+    "⏰ Schedule: Todo dia 00:00": {
+      "main": [[{ "node": "🏪 1. Buscar restaurantes", "type": "main", "index": 0 }]]
+    },
+    "🏪 1. Buscar restaurantes": {
+      "main": [[{ "node": "🔄 Loop: Restaurantes", "type": "main", "index": 0 }]]
+    },
+    "🔄 Loop: Restaurantes": {
+      "main": [[{ "node": "🔧 2. Verificar horário", "type": "main", "index": 0 }]]
+    },
+    "🔧 2. Verificar horário": {
+      "main": [[{ "node": "❓ Deve abrir?", "type": "main", "index": 0 }]]
+    },
+    "❓ Deve abrir?": {
+      "main": [
+        [{ "node": "🔓 3a. Abrir restaurante", "type": "main", "index": 0 }],
+        [{ "node": "🔒 3b. Fechar restaurante", "type": "main", "index": 1 }]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "tags": ["peddi-order", "abertura", "fechamento", "operacional"]
+}

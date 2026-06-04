@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { signIn, signOut, getCurrentUser, getProfile, onAuthChange, type Profile } from "@/services/auth";
+import { supabase } from "@/lib/supabase";
+import { signIn, signOut, getProfile, onAuthChange, type Profile } from "@/services/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -24,33 +25,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const p = await getProfile(currentUser.id);
-          setProfile(p);
-        } catch {
-          setProfile(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session?.user) {
+          setUser(session.user);
+          const p = await getProfile(session.user.id).catch(() => null);
+          if (!cancelled) setProfile(p);
         }
+      } catch {
+        // session fetch failed
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
-    init();
+    // safety: force loading false after 8s even if init hangs
+    const fallback = setTimeout(() => { if (!cancelled) setLoading(false); }, 8000);
+    init().finally(() => clearTimeout(fallback));
 
     const subscription = onAuthChange(async (event, session) => {
+      if (cancelled) return;
       if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
-        const p = await getProfile(session.user.id);
-        setProfile(p);
+        // Load profile asynchronously to avoid blocking
+        getProfile(session.user.id).then(p => {
+          if (!cancelled) setProfile(p);
+        }).catch(() => {
+          if (!cancelled) setProfile(null);
+        });
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         setProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 
   const handleSignIn = async (email: string, password: string) => {

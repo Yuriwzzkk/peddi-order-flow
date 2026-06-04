@@ -1,0 +1,183 @@
+{
+  "name": "🛒 Carrinho Abandonado — 15min",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "peddi-carrinho-abandonado",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "⏰ Webhook: Carrinho Abandonado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nreturn {\n  session_id: body.session_id,\n  restaurante_id: body.restaurante_id,\n  cliente_id: body.cliente_id,\n  telefone: body.telefone || body.cliente_telefone,\n  etapa_atual: body.etapa_atual || ''\n};"
+      },
+      "name": "🔧 1. Extrair dados sessão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "minutes"
+      },
+      "name": "⏳ 2. Aguardar 15 minutos",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sessoes?id=eq.{{ $json.session_id }}&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "🔎 3. Verificar sessão",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst session = Array.isArray(data) ? data[0] : data;\n\nif (!session || session.status !== 'ativa') {\n  return { ativa: false, session: null };\n}\n\nconst etapasFinais = ['aguardando_pagamento', 'finalizado', 'expirada'];\nif (etapasFinais.includes(session.etapa_atual)) {\n  return { ativa: false, session };\n}\n\nreturn { ativa: true, session };"
+      },
+      "name": "🔧 3b. Validar sessão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.ativa }}", "value2": "true" }
+          ]
+        }
+      },
+      "name": "❓ Sessão ainda ativa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('🔧 3b. Validar sessão').first().json.session;\nreturn {\n  to: $json.telefone,\n  message: `Oi! Seu carrinho ainda está aqui 🛒\\n\\n${(session?.carrinho || []).map(i => `• ${i.nome}`).join('\\n')}\\n\\n1️⃣ Continuar pedido\\n2️⃣ Cancelar`\n};"
+      },
+      "name": "💬 4. Mensagem recuperação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1500, 200]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "minutes"
+      },
+      "name": "⏳ 5. Aguardar mais 15 min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1500, 400]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sessoes?id=eq.{{ $json.session_id }}",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "expirada" },
+            { "name": "etapa_atual", "value": "expirada" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        }
+      },
+      "name": "🔄 6. Expirar sessão",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1750, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  to: $json.telefone,\n  message: '⏰ Seu carrinho expirou. Quando quiser, é só chamar! 🍔'\n};"
+      },
+      "name": "💬 6b. Mensagem expiração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Send via Z-API\nreturn {\n  url: 'https://api.z-api.io/instances/{{INSTANCE_ID}}/token/{{TOKEN}}/send-text',\n  body: {\n    phone: $json.to,\n    message: $json.message\n  }\n};"
+      },
+      "name": "📤 Enviar WhatsApp (Z-API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1750, 200]
+    }
+  ],
+  "connections": {
+    "⏰ Webhook: Carrinho Abandonado": {
+      "main": [[{ "node": "🔧 1. Extrair dados sessão", "type": "main", "index": 0 }]]
+    },
+    "🔧 1. Extrair dados sessão": {
+      "main": [[{ "node": "⏳ 2. Aguardar 15 minutos", "type": "main", "index": 0 }]]
+    },
+    "⏳ 2. Aguardar 15 minutos": {
+      "main": [[{ "node": "🔎 3. Verificar sessão", "type": "main", "index": 0 }]]
+    },
+    "🔎 3. Verificar sessão": {
+      "main": [[{ "node": "🔧 3b. Validar sessão", "type": "main", "index": 0 }]]
+    },
+    "🔧 3b. Validar sessão": {
+      "main": [[{ "node": "❓ Sessão ainda ativa?", "type": "main", "index": 0 }]]
+    },
+    "❓ Sessão ainda ativa?": {
+      "main": [
+        [{ "node": "💬 4. Mensagem recuperação", "type": "main", "index": 0 }],
+        [{ "node": "🔎 3. Verificar sessão", "type": "main", "index": 1 }]
+      ]
+    },
+    "💬 4. Mensagem recuperação": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    },
+    "📤 Enviar WhatsApp (Z-API)": {
+      "main": [[{ "node": "⏳ 5. Aguardar mais 15 min", "type": "main", "index": 0 }]]
+    },
+    "⏳ 5. Aguardar mais 15 min": {
+      "main": [[{ "node": "🔄 6. Expirar sessão", "type": "main", "index": 0 }]]
+    },
+    "🔄 6. Expirar sessão": {
+      "main": [[{ "node": "💬 6b. Mensagem expiração", "type": "main", "index": 0 }]]
+    },
+    "💬 6b. Mensagem expiração": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "tags": ["peddi-order", "carrinho-abandonado", "recuperacao"]
+}

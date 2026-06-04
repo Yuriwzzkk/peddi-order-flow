@@ -19,7 +19,7 @@ export function CTASection() {
           className="font-display font-bold text-primary-foreground mb-6"
           style={{ fontSize: "clamp(2.5rem, 7vw, 4.5rem)" }}
         >
-          Teste o Peddi por 3 dias grátis.
+          Teste o FoodWaker por 3 dias grátis.
         </h2>
 
         <p className="text-lg text-primary-foreground/70 mb-10 max-w-xl mx-auto">
@@ -27,10 +27,10 @@ export function CTASection() {
         </p>
 
         <a
-          href="/onboarding"
+          href="/checkout?plan=pro"
           className="inline-block px-10 py-5 text-lg font-bold rounded-xl bg-background text-foreground hover:bg-foreground hover:text-background active:scale-[0.97] transition-all duration-150"
         >
-          COMEÇAR TESTE GRATUITO →
+          COMEÇAR AGORA →
         </a>
 
         <p className="text-sm text-primary-foreground/50 mt-8">

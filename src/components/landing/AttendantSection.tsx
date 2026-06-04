@@ -100,7 +100,7 @@ export function AttendantSection() {
           transition={{ delay: 0.1, duration: 0.5 }}
           className="text-foreground-muted max-w-2xl mx-auto text-lg"
         >
-          Para pedidos presenciais, o Peddi tem um sistema exclusivo: o atendente seleciona os itens direto no celular enquanto o cliente fala. O pedido já entra no sistema na hora — organizado, sem erro, sem retrabalho.
+          Para pedidos presenciais, o FoodWaker tem um sistema exclusivo: o atendente seleciona os itens direto no celular enquanto o cliente fala. O pedido já entra no sistema na hora — organizado, sem erro, sem retrabalho.
         </motion.p>
       </div>
 
@@ -139,7 +139,7 @@ export function AttendantSection() {
           {/* Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-2 border border-primary/30 text-xs text-primary mb-4">
             <Star className="w-3 h-3" />
-            Sistema exclusivo Peddi
+            Sistema exclusivo FoodWaker
           </div>
 
           {/* Phone frame */}

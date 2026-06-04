@@ -1,0 +1,208 @@
+{
+  "name": "⭐ Avaliação Pós-Entrega + NPS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "peddi-avaliacao",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "⏰ Webhook: Pedido Entregue",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nreturn {\n  pedido_id: body.pedido_id || body.order_id,\n  restaurante_id: body.restaurante_id,\n  cliente_id: body.cliente_id,\n  telefone: body.telefone || body.cliente_telefone,\n  cliente_nome: body.cliente_nome || 'Cliente'\n};"
+      },
+      "name": "🔧 1. Extrair dados pedido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "minutes"
+      },
+      "name": "⏳ 2. Aguardar 10 minutos",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  to: $json.telefone,\n  message: `🍕 Olá ${$json.cliente_nome}! Seu pedido chegou? 😊\\n\\nDe 1 a 5, como você avalia?\\n\\n⭐ 1 — Péssimo\\n⭐ 2 — Ruim\\n⭐ 3 — Bom\\n⭐ 4 — Ótimo\\n⭐ 5 — Excelente`\n};"
+      },
+      "name": "💬 3. Enviar NPS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/{{INSTANCE_ID}}/token/{{TOKEN}}/send-text",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "phone", "value": "={{ $json.to }}" },
+            { "name": "message", "value": "={{ $json.message }}" }
+          ]
+        }
+      },
+      "name": "📤 Enviar WhatsApp (Z-API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "webhookId": "peddi-resposta-avaliacao",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {},
+        "responseData": "allEntries"
+      },
+      "name": "👂 4. Aguardar resposta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1000, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst notaStr = response?.body?.mensagem || response?.body?.text || '';\nconst nota = parseInt(notaStr.replace(/[^0-9]/g, ''));\n\nreturn { nota: nota >= 1 && nota <= 5 ? nota : 0 };"
+      },
+      "name": "🔧 5. Interpretar nota",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            { "value1": "={{ $json.nota }}", "value2": "3", "type": "number" }
+          ]
+        }
+      },
+      "name": "❓ Nota ≤ 3?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1500, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  to: $json.telefone,\n  message: `😢 Que pena! Vamos melhorar!\\n\\nConte mais sobre o que aconteceu para ajudarmos.`\n};"
+      },
+      "name": "💬 5a. Resposta nota baixa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1750, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/avaliacoes",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "pedido_id", "value": "={{ $json.pedido_id }}" },
+            { "name": "nota", "value": "={{ $json.nota }}" },
+            { "name": "comentario", "value": "" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        }
+      },
+      "name": "💾 5b. Salvar avaliação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Notificar gestor sobre avaliação negativa\nreturn {\n  to: $json.telefone,\n  message: '🔔 Notificação enviada ao gestor para acompanhamento.'\n};"
+      },
+      "name": "🔔 Notificar gestor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  to: $json.telefone,\n  message: `Ficamos felizes que você gostou! 😊\\n\\nSe possível, avalia a gente no Google: {{ $json.link_google }}\\n\\nVolte sempre! 🚀`\n};"
+      },
+      "name": "💬 5c. Pedir review Google",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1750, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  url: 'https://api.z-api.io/instances/{{INSTANCE_ID}}/token/{{TOKEN}}/send-text',\n  body: { phone: $json.to, message: $json.message }\n};"
+      },
+      "name": "📤 Enviar WhatsApp Final",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2000, 600]
+    }
+  ],
+  "connections": {
+    "⏰ Webhook: Pedido Entregue": {
+      "main": [[{ "node": "🔧 1. Extrair dados pedido", "type": "main", "index": 0 }]]
+    },
+    "🔧 1. Extrair dados pedido": {
+      "main": [[{ "node": "⏳ 2. Aguardar 10 minutos", "type": "main", "index": 0 }]]
+    },
+    "⏳ 2. Aguardar 10 minutos": {
+      "main": [[{ "node": "💬 3. Enviar NPS", "type": "main", "index": 0 }]]
+    },
+    "💬 3. Enviar NPS": {
+      "main": [[{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }]]
+    },
+    "📤 Enviar WhatsApp (Z-API)": {
+      "main": [[{ "node": "👂 4. Aguardar resposta", "type": "main", "index": 0 }]]
+    },
+    "👂 4. Aguardar resposta": {
+      "main": [[{ "node": "🔧 5. Interpretar nota", "type": "main", "index": 0 }]]
+    },
+    "🔧 5. Interpretar nota": {
+      "main": [[{ "node": "❓ Nota ≤ 3?", "type": "main", "index": 0 }]]
+    },
+    "❓ Nota ≤ 3?": {
+      "main": [
+        [{ "node": "💬 5a. Resposta nota baixa", "type": "main", "index": 0 }],
+        [{ "node": "💬 5c. Pedir review Google", "type": "main", "index": 1 }]
+      ]
+    },
+    "💬 5a. Resposta nota baixa": {
+      "main": [[{ "node": "💾 5b. Salvar avaliação", "type": "main", "index": 0 }]]
+    },
+    "💾 5b. Salvar avaliação": {
+      "main": [[{ "node": "🔔 Notificar gestor", "type": "main", "index": 0 }]]
+    },
+    "🔔 Notificar gestor": {
+      "main": [[{ "node": "📤 Enviar WhatsApp Final", "type": "main", "index": 0 }]]
+    },
+    "💬 5c. Pedir review Google": {
+      "main": [[{ "node": "📤 Enviar WhatsApp Final", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "tags": ["peddi-order", "avaliacao", "nps", "pos-venda"]
+}

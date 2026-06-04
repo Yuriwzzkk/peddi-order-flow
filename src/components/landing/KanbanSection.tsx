@@ -48,7 +48,7 @@ export function KanbanSection() {
           className="font-display font-bold text-foreground mb-4"
           style={{ fontSize: "clamp(2.5rem, 6vw, 3.5rem)" }}
         >
-          O Peddi organiza tudo automaticamente
+          O FoodWaker organiza tudo automaticamente
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 12 }}

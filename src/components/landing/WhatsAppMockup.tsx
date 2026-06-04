@@ -70,7 +70,7 @@ export function WhatsAppMockup() {
       setTimeout(() => {
         addMessages({
           id: nextId(),
-          text: "Olá! 👋 Bem-vindo ao Peddi. Como posso te ajudar?",
+          text: "Olá! 👋 Bem-vindo ao FoodWaker. Como posso te ajudar?",
           sender: "bot",
           type: "main-buttons",
         });
@@ -158,7 +158,7 @@ export function WhatsAppMockup() {
     setTimeout(() => {
       addMessages({
         id: nextId(),
-        text: "Olá! 👋 Bem-vindo ao Peddi. Como posso te ajudar?",
+        text: "Olá! 👋 Bem-vindo ao FoodWaker. Como posso te ajudar?",
         sender: "bot",
         type: "main-buttons",
       });
@@ -189,7 +189,7 @@ export function WhatsAppMockup() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle" style={{ background: "hsl(0 0% 7%)" }}>
           <div className="w-9 h-9 rounded-full bg-[hsl(142,70%,45%)] flex items-center justify-center text-sm font-bold text-background">P</div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Peddi 🍔</p>
+            <p className="text-sm font-medium text-foreground">FoodWaker 🍔</p>
             <p className="text-xs text-[hsl(142,70%,45%)]">online agora</p>
           </div>
           <div className="flex items-center gap-3 text-foreground-muted">

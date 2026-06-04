@@ -24,7 +24,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="mb-4">
-              <img src={peddiLogo} alt="Peddi" style={{ height: "48px", width: "auto", objectFit: "contain", objectPosition: "left center", filter: "brightness(0) invert(1)", transform: "scale(1.5)", transformOrigin: "left center" }} />
+              <img src={peddiLogo} alt="FoodWaker" style={{ height: "48px", width: "auto", objectFit: "contain", objectPosition: "left center", filter: "brightness(0) invert(1)", transform: "scale(1.5)", transformOrigin: "left center" }} />
             </div>
             <p className="text-sm text-foreground-muted mb-6">
               O sistema de pedidos por WhatsApp para restaurantes que faturam mais.
@@ -60,7 +60,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border-subtle mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-foreground-muted">© 2026 Peddi. Todos os direitos reservados.</p>
+          <p className="text-xs text-foreground-muted">© 2026 FoodWaker. Todos os direitos reservados.</p>
           <div className="flex gap-6">
             <a href="#" className="text-xs text-foreground-muted hover:text-foreground transition-colors">Privacidade</a>
             <a href="#" className="text-xs text-foreground-muted hover:text-foreground transition-colors">Termos</a>

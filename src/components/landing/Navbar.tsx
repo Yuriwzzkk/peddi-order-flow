@@ -26,7 +26,7 @@ export function Navbar() {
         <a href="#" className="flex items-center">
           <img
             src={peddiLogo}
-            alt="Peddi"
+            alt="FoodWaker"
             style={{
               height: "64px",
               width: "auto",
@@ -55,16 +55,16 @@ export function Navbar() {
         {/* Desktop buttons */}
         <div className="hidden md:flex items-center gap-3">
           <a
-            href="#"
+            href="/painel"
             className="px-5 py-2 text-sm rounded-lg border border-foreground/20 text-foreground-muted hover:border-foreground/60 hover:text-foreground transition-all duration-200"
           >
             Entrar
           </a>
           <a
-            href="/onboarding"
+            href="/checkout?plan=starter"
             className="px-5 py-2 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover hover:shadow-[0_0_24px_hsla(18,100%,58%,0.5)] active:scale-[0.97] transition-all duration-150"
           >
-            Testar grátis
+            Assinar
           </a>
         </div>
 
@@ -96,11 +96,11 @@ export function Navbar() {
             </a>
           ))}
           <div className="flex gap-3 pt-2">
-            <a href="#" className="px-5 py-2 text-sm rounded-lg border border-foreground/20 text-foreground-muted">
+            <a href="/painel" className="px-5 py-2 text-sm rounded-lg border border-foreground/20 text-foreground-muted">
               Entrar
             </a>
-            <a href="/onboarding" className="px-5 py-2 text-sm font-bold rounded-lg bg-primary text-primary-foreground">
-              Testar grátis
+            <a href="/checkout?plan=starter" className="px-5 py-2 text-sm font-bold rounded-lg bg-primary text-primary-foreground">
+              Assinar
             </a>
           </div>
         </motion.div>

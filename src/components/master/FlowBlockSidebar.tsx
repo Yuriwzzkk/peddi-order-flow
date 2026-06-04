@@ -69,7 +69,12 @@ export default function FlowBlockSidebar({ onAddBlock }: Props) {
                   {cat.blocks.map(block => (
                     <button
                       key={`${cat.id}-${block.title}`}
+                      draggable={!block.locked}
                       onClick={() => !block.locked && onAddBlock(block.icon, block.title, cat.id)}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("application/flow-block", JSON.stringify({ icon: block.icon, title: block.title, categoryId: cat.id }));
+                        e.dataTransfer.effectAllowed = "copy";
+                      }}
                       className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border-l-[3px] text-xs transition-colors cursor-grab ${cat.color} ${
                         block.locked
                           ? "opacity-40 cursor-not-allowed bg-[hsl(0,0%,10%)]"

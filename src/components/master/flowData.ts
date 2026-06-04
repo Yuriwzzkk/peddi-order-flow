@@ -22,17 +22,12 @@ export const blockCategories: BlockCategory[] = [
       { icon: "📩", title: "Primeira mensagem" },
       { icon: "💬", title: "Qualquer mensagem recebida" },
       { icon: "🔑", title: "Palavra-chave detectada" },
-      { icon: "🆕", title: "Novo cliente cadastrado" },
       { icon: "🔄", title: "Cliente inativo 3 dias" },
       { icon: "🔄", title: "Cliente inativo 7 dias" },
-      { icon: "🔄", title: "Cliente inativo 15 dias" },
-      { icon: "🔄", title: "Cliente inativo 30 dias" },
       { icon: "🎂", title: "Aniversário do cliente" },
       { icon: "⭐", title: "Avaliação recebida" },
       { icon: "👎", title: "Avaliação negativa (1-2★)" },
       { icon: "👍", title: "Avaliação positiva (4-5★)" },
-      { icon: "🖼️", title: "Cliente enviou imagem" },
-      { icon: "🎵", title: "Cliente enviou áudio" },
       { icon: "📍", title: "Cliente enviou localização" },
       { icon: "🏷️", title: "Cliente com tag específica" },
       { icon: "🏷️", title: "Cliente sem nenhuma tag" },
@@ -58,7 +53,6 @@ export const blockCategories: BlockCategory[] = [
       { icon: "💸", title: "Pedido abaixo de R$X" },
       { icon: "🎁", title: "Primeiro pedido do cliente" },
       { icon: "🔁", title: "Pedido repetido (mesmo item)" },
-      { icon: "⏱️", title: "Sem resposta há X minutos" },
       { icon: "🛒", title: "Carrinho abandonado" },
       { icon: "🎟️", title: "Cupom utilizado" },
     ],
@@ -72,9 +66,7 @@ export const blockCategories: BlockCategory[] = [
       { icon: "🍔", title: "Cliente escolheu categoria" },
       { icon: "🍔", title: "Cliente escolheu produto" },
       { icon: "➕", title: "Produto adicionado ao carrinho" },
-      { icon: "➖", title: "Produto removido do carrinho" },
       { icon: "🔙", title: "Cliente voltou ao menu" },
-      { icon: "🔍", title: "Cliente pesquisou produto" },
     ],
   },
   {
@@ -90,9 +82,6 @@ export const blockCategories: BlockCategory[] = [
       { icon: "📆", title: "Dia da semana específico" },
       { icon: "🗓️", title: "Data específica" },
       { icon: "⏳", title: "Após X tempo sem interação" },
-      { icon: "🌅", title: "Toda manhã (8h-12h)" },
-      { icon: "☀️", title: "Toda tarde (12h-18h)" },
-      { icon: "🌙", title: "Toda noite (18h-23h)" },
     ],
   },
   {
@@ -203,6 +192,40 @@ export const blockCategories: BlockCategory[] = [
       { icon: "🔒", title: "Pagamento automático PIX", locked: true },
     ],
   },
+  {
+    id: "flow-vendas",
+    label: "🟢 FLUXO DE VENDAS",
+    color: "border-l-[hsl(142,71%,45%)]",
+    headerColor: "hsl(142 71% 45%)",
+    blocks: [
+      { icon: "👋", title: "Boas-vindas" },
+      { icon: "📋", title: "Cardápio dinâmico" },
+      { icon: "🍔", title: "Adicionar item" },
+      { icon: "🔥", title: "Bump (oferta especial)" },
+      { icon: "🚀", title: "Upsell" },
+      { icon: "💸", title: "Downsell" },
+      { icon: "📍", title: "Coletar localização" },
+      { icon: "💳", title: "Coletar pagamento" },
+      { icon: "📝", title: "Resumo e confirmação" },
+      { icon: "🤝", title: "Handoff atendente" },
+      { icon: "🛒", title: "Criar pedido no banco" },
+      { icon: "🔄", title: "Roteador de etapas" },
+      { icon: "❌", title: "Cancelar fluxo" },
+    ],
+  },
+  {
+    id: "flow-recuperacao",
+    label: "🟡 RECUPERAÇÃO E PÓS-VENDA",
+    color: "border-l-[hsl(38,92%,50%)]",
+    headerColor: "hsl(38 92% 50%)",
+    blocks: [
+      { icon: "🛒", title: "Carrinho abandonado (15min)" },
+      { icon: "📢", title: "Reengajamento 7 dias" },
+      { icon: "⭐", title: "Avaliação pós-entrega" },
+      { icon: "🔔", title: "Notificar gestor (nota baixa)" },
+      { icon: "🗓️", title: "Abertura/fechamento auto" },
+    ],
+  },
 ];
 
 export function getCategoryForBlock(title: string): BlockCategory | undefined {
@@ -249,6 +272,47 @@ export const restaurants = [
 ];
 
 export const defaultFlows: FlowData[] = [
+  {
+    id: "fluxo-completo",
+    name: "Fluxo completo de vendas",
+    icon: "🤖",
+    description: "Cardápio → Bump → Upsell → Downsell → Localização → Pagamento → Handoff",
+    category: "🟢 Fluxo de Vendas",
+    status: "active",
+    blockCount: 13,
+    lastEdited: "hoje",
+    stats: { triggered: 0 },
+    blocks: [
+      { id: "f1", icon: "📩", title: "Primeira mensagem", categoryId: "client-triggers", message: "Gatilho: cliente enviou primeira mensagem", x: 300, y: 40 },
+      { id: "f2", icon: "🏪", title: "Boas-vindas", categoryId: "flow-vendas", message: "Olá {nome}! Bem-vindo(a) ao {restaurante}! 1️⃣ Ver cardápio 2️⃣ Repetir último pedido 3️⃣ Atendente", x: 300, y: 180 },
+      { id: "f3", icon: "📋", title: "Cardápio dinâmico", categoryId: "flow-vendas", message: "Busca categorias do Supabase em tempo real", x: 300, y: 320 },
+      { id: "f4", icon: "🍔", title: "Adicionar item", categoryId: "flow-vendas", message: "Item adicionado ao carrinho. Verificar bump...", x: 300, y: 460 },
+      { id: "f5", icon: "🔥", title: "Bump (oferta especial)", categoryId: "flow-vendas", message: "Por +R$X adicione {bump_nome}? 1️⃣ Sim 2️⃣ Não", x: 500, y: 460 },
+      { id: "f6", icon: "🚀", title: "Upsell", categoryId: "flow-vendas", message: "Total menor que ticket médio? Oferecer item mais vendido", x: 300, y: 600 },
+      { id: "f7", icon: "💸", title: "Downsell", categoryId: "flow-vendas", message: "Recusou upsell? Oferecer item mais barato", x: 500, y: 600 },
+      { id: "f8", icon: "📍", title: "Coletar localização", categoryId: "flow-vendas", message: "1️⃣ Entrega 2️⃣ Retirada. Se entrega: pedir endereço", x: 300, y: 740 },
+      { id: "f9", icon: "💳", title: "Coletar pagamento", categoryId: "flow-vendas", message: "Formas do Supabase. Se dinheiro: perguntar troco", x: 300, y: 880 },
+      { id: "f10", icon: "📝", title: "Resumo e confirmação", categoryId: "flow-vendas", message: "Resumo: itens + frete + total + pagamento. 1️⃣ Confirmar 2️⃣ Editar 3️⃣ Cancelar", x: 300, y: 1020 },
+      { id: "f11", icon: "🤝", title: "Handoff atendente", categoryId: "flow-vendas", message: "Criar pedido no Supabase + notificar painel + mensagem confirmação", x: 300, y: 1160 },
+      { id: "f12", icon: "🔄", title: "Roteador de etapas", categoryId: "flow-vendas", message: "Switch: etapa_atual + mensagem do cliente", x: 300, y: 80 },
+      { id: "f13", icon: "🚫", title: "Fora do horário", categoryId: "time-triggers", message: "Estamos fechados! Abrimos às {horario} 😊", x: 100, y: 80 },
+    ],
+    connections: [
+      { from: "f1", to: "f13", label: "Fora do horário" },
+      { from: "f1", to: "f2", label: "Aberto" },
+      { from: "f2", to: "f3" },
+      { from: "f3", to: "f4" },
+      { from: "f4", to: "f5", label: "Tem bump" },
+      { from: "f4", to: "f6", label: "Sem bump" },
+      { from: "f5", to: "f6" },
+      { from: "f6", to: "f7", label: "Recusou" },
+      { from: "f6", to: "f8", label: "Aceitou / Pulou" },
+      { from: "f7", to: "f8" },
+      { from: "f8", to: "f9" },
+      { from: "f9", to: "f10" },
+      { from: "f10", to: "f11", label: "Confirmou" },
+    ],
+  },
   {
     id: "atendimento",
     name: "Atendimento",
@@ -357,20 +421,31 @@ export const defaultFlows: FlowData[] = [
 ];
 
 export const flowTemplates = [
-  { id: "basic", name: "Fluxo básico de pedidos", icon: "🤖" },
-  { id: "remarketing-7", name: "Remarketing 7 dias", icon: "📢" },
+  { id: "fluxo-completo", name: "Fluxo completo de vendas", icon: "🤖" },
+  { id: "basic", name: "Fluxo básico de pedidos", icon: "🍔" },
+  { id: "remarketing-7", name: "Reengajamento 7 dias", icon: "📢" },
+  { id: "carrinho-abandonado", name: "Carrinho abandonado", icon: "🛒" },
+  { id: "pos-entrega", name: "Pós-entrega e avaliação NPS", icon: "⭐" },
+  { id: "abertura-fechamento", name: "Abertura/fechamento auto", icon: "⏰" },
   { id: "upsell-auto", name: "Upsell automático", icon: "🎯" },
   { id: "fora-horario", name: "Fora do horário", icon: "🌙" },
-  { id: "pos-entrega", name: "Pós-entrega e avaliação", icon: "⭐" },
   { id: "promo-fds", name: "Promoção fim de semana", icon: "🎁" },
 ];
 
 export const flowCategoryOptions = [
+  { icon: "🟢", label: "Fluxo de Vendas" },
   { icon: "🤖", label: "Atendimento" },
   { icon: "📢", label: "Remarketing" },
+  { icon: "🛒", label: "Carrinho Abandonado" },
+  { icon: "⭐", label: "Pós-Entrega" },
   { icon: "🎯", label: "Upsell" },
   { icon: "🎁", label: "Promoção" },
-  { icon: "⚙️", label: "Operacional" },
+  { icon: "⏰", label: "Operacional" },
 ];
 
-export const variables = ["{nome}", "{restaurante}", "{valor}", "{itens}", "{pagamento}", "{troco}"];
+export const variables = [
+  "{nome}", "{restaurante}", "{valor}", "{itens}", "{pagamento}", "{troco}",
+  "{bump_nome}", "{bump_preco}", "{upsell_nome}", "{upsell_preco}",
+  "{downsell_nome}", "{downsell_preco}", "{horario_abertura}", "{horario_fechamento}",
+  "{pedido_id}", "{total_final}", "{frete}", "{endereco}", "{link_google}",
+];

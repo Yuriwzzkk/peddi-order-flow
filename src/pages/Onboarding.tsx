@@ -206,6 +206,13 @@ export default function Onboarding() {
 
       localStorage.setItem("peddi_onboarding", JSON.stringify(data));
       localStorage.removeItem("peddi_onboarding_progress");
+
+      // Marca onboarding como completo para não redirecionar novamente
+      await supabase
+        .from("restaurants")
+        .update({ onboarding_completed: true })
+        .eq("id", restaurant.id);
+
       toast.success("Restaurante criado com sucesso!");
       navigate("/admin");
     } catch (e: any) {
@@ -268,7 +275,7 @@ export default function Onboarding() {
               </motion.span>
             </motion.div>
             <motion.h1 {...stagger(0.3)} className="font-display text-3xl md:text-4xl font-bold text-foreground">
-              Seja bem-vindo<br />ao Peddi!
+              Seja bem-vindo<br />ao FoodWaker!
             </motion.h1>
             <motion.p {...stagger(0.5)} className="text-muted-foreground text-lg">
               Vamos configurar seu restaurante em menos de 5 minutos.
@@ -799,7 +806,7 @@ export default function Onboarding() {
           )}
           <img
             src={peddiLogo}
-            alt="Peddi"
+            alt="FoodWaker"
             className="h-8 w-auto"
             style={{ filter: "brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(1500%) hue-rotate(346deg) brightness(101%) contrast(101%)" }}
           />

@@ -114,7 +114,7 @@ export async function completeDeliveryRPC(orderId: string, restaurantId?: string
     p_order_id: orderId,
   });
   if (error) throw error;
-  if (restaurantId) dispatchAndQueue(restaurantId, "order_status_changed", { order_id: orderId, new_status: "delivered" }).catch(() => {});
+  if (restaurantId) dispatchAndQueue(restaurantId, "order_status_changed", { order_id: orderId, new_status: "completed" }).catch(() => {});
   return formatOrder(data);
 }
 
@@ -164,22 +164,22 @@ export function subscribeOrders(
   restaurantId: string,
   callback: (order: Order, event: "INSERT" | "UPDATE" | "DELETE") => void
 ) {
-  return supabase
-    .channel("orders-channel")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "orders",
-        filter: `restaurant_id=eq.${restaurantId}`,
-      },
-      async (payload) => {
-        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-          const order = await getOrder(payload.new.id);
-          if (order) callback(order, payload.eventType);
-        }
+  const channel = supabase.channel(`orders-${restaurantId}-${Date.now()}`);
+  channel.on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "orders",
+      filter: `restaurant_id=eq.${restaurantId}`,
+    },
+    async (payload) => {
+      if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+        const order = await getOrder(payload.new.id);
+        if (order) callback(order, payload.eventType);
       }
-    )
-    .subscribe();
+    }
+  );
+  channel.subscribe();
+  return channel;
 }

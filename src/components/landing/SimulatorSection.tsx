@@ -188,7 +188,7 @@ export function SimulatorSection() {
           {/* Results */}
           <div className="flex flex-col md:flex-row gap-3">
             <ResultCard label="Pedidos perdidos por mês" value={lostOrders} />
-            <ResultCard label="Recuperados pelo Peddi" value={recovered} />
+            <ResultCard label="Recuperados pelo FoodWaker" value={recovered} />
             <ResultCard label="Dinheiro extra por mês" value={totalRecovered} prefix="R$ " />
           </div>
 

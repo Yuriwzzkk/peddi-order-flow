@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Copy, Trash2, Flame } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Flame, Settings2, Share2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { listCategories, createCategory, listMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from "@/services/menu";
+import { supabase } from "@/lib/supabase";
+import { listCategories, createCategory, updateCategory, deleteCategory, listMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from "@/services/menu";
 import type { MenuItem, MenuCategory } from "@/types";
+
+const EMOJIS = ["🍕", "🍔", "🥩", "🍝", "🥗", "🥙", "🌮", "🌯", "🍜", "🍣", "🍱", "🥟", "🍦", "🍰", "🥤", "🍺", "🥃", "☕", "🧃", "🥜", "🧀", "🥚", "🥓", "🐟"];
 
 const emptyForm = { name: "", description: "", price: "", category_id: "", available: true, featured: false, upsell: false, upsellProductId: "", upsellMessage: "" };
 
 export default function MenuPage() {
-  const isMobile = useIsMobile();
   const { profile } = useAuth();
   const restaurantId = profile?.restaurant_id;
   const [category, setCategory] = useState("todos");
@@ -27,6 +29,9 @@ export default function MenuPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [catDialog, setCatDialog] = useState<{ open: boolean; edit?: MenuCategory }>({ open: false });
+  const [catForm, setCatForm] = useState({ name: "", emoji: "🍕" });
+  const [menuSlug, setMenuSlug] = useState("");
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -34,17 +39,16 @@ export default function MenuPage() {
     Promise.all([
       listCategories(restaurantId).then(setCategories).catch(() => {}),
       listMenuItems(restaurantId).then(setItems).catch(() => {}),
+      supabase.from("restaurants").select("slug").eq("id", restaurantId).single().then(r => { if (r.data?.slug) setMenuSlug(r.data.slug); }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [restaurantId]);
 
   const filtered = category === "todos" ? items : items.filter(i => i.category_id === category);
 
-  const currentCategory = categories.find(c => c.id === category);
-
   const toggleField = async (id: string, field: "available" | "featured", value: boolean) => {
     setItems(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
     try { await updateMenuItem(id, { [field]: value }); }
-    catch (err) { setItems(prev => prev.map(p => p.id === id ? { ...p, [field]: !value } : p)); }
+    catch { setItems(prev => prev.map(p => p.id === id ? { ...p, [field]: !value } : p)); }
   };
 
   const openCreate = () => {
@@ -85,13 +89,38 @@ export default function MenuPage() {
     } catch (err: any) { toast.error(err.message); }
   };
 
-  const createNewCategory = async () => {
-    const name = prompt("Nome da nova categoria:");
-    if (!name || !restaurantId) return;
+  const openCatCreate = () => {
+    setCatForm({ name: "", emoji: "🍕" });
+    setCatDialog({ open: true });
+  };
+
+  const openCatEdit = (c: MenuCategory) => {
+    setCatForm({ name: c.name, emoji: c.emoji || "🍽️" });
+    setCatDialog({ open: true, edit: c });
+  };
+
+  const saveCategory = async () => {
+    if (!catForm.name || !restaurantId) return;
     try {
-      const cat = await createCategory(restaurantId, name);
-      setCategories(prev => [...prev, cat]);
-      toast.success("Categoria criada!");
+      if (catDialog.edit) {
+        await updateCategory(catDialog.edit.id, { name: catForm.name, emoji: catForm.emoji });
+        setCategories(prev => prev.map(c => c.id === catDialog.edit!.id ? { ...c, name: catForm.name, emoji: catForm.emoji } : c));
+        toast.success("Categoria atualizada!");
+      } else {
+        const cat = await createCategory(restaurantId, catForm.name, catForm.emoji);
+        setCategories(prev => [...prev, cat]);
+        toast.success("Categoria criada!");
+      }
+      setCatDialog({ open: false });
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const deleteCat = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      setCategories(prev => prev.filter(c => c.id !== id));
+      if (category === id) setCategory("todos");
+      toast.success("Categoria removida!");
     } catch (err: any) { toast.error(err.message); }
   };
 
@@ -131,7 +160,15 @@ export default function MenuPage() {
 
   return (
     <div className="space-y-4 relative pb-20">
-      <h1 className="text-xl font-bold text-foreground">Cardápio</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-foreground">Cardápio</h1>
+        {menuSlug && (
+          <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/menu/${menuSlug}`); toast.success("Link do cardápio copiado!"); }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-secondary">
+            <Share2 size={12} /> Compartilhar
+          </button>
+        )}
+      </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 items-center">
         <button onClick={() => setCategory("todos")}
@@ -139,12 +176,20 @@ export default function MenuPage() {
           Todos
         </button>
         {categories.map((c) => (
-          <button key={c.id} onClick={() => setCategory(c.id)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${category === c.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
-            {c.emoji || "🍽️"} {c.name}
-          </button>
+          <div key={c.id} className="relative group shrink-0">
+            <button onClick={() => setCategory(c.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors pr-7 ${category === c.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+              {c.emoji || "🍽️"} {c.name}
+            </button>
+            {category === c.id && (
+              <button onClick={() => openCatEdit(c)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center opacity-60 hover:opacity-100">
+                <Settings2 size={10} />
+              </button>
+            )}
+          </div>
         ))}
-        <button onClick={createNewCategory}
+        <button onClick={openCatCreate}
           className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground">
           + Categoria
         </button>
@@ -208,6 +253,40 @@ export default function MenuPage() {
       <button onClick={openCreate} className="fixed bottom-20 md:bottom-6 right-4 md:right-8 w-14 h-14 bg-primary hover:bg-primary-hover rounded-full flex items-center justify-center shadow-lg shadow-primary/30 transition-colors z-30">
         <Plus size={24} className="text-primary-foreground" />
       </button>
+
+      <Dialog open={catDialog.open} onOpenChange={o => setCatDialog(p => ({ ...p, open: o }))}>
+        <DialogContent className="bg-admin-card border-admin-card-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">{catDialog.edit ? "Editar categoria" : "Nova categoria"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-foreground text-sm">Nome</Label>
+              <Input value={catForm.name} onChange={e => setCatForm(p => ({ ...p, name: e.target.value }))} className="bg-secondary border-admin-card-border h-11" placeholder="Ex: Pizzas, Bebidas..." />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground text-sm">Ícone</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJIS.map(e => (
+                  <button key={e} onClick={() => setCatForm(p => ({ ...p, emoji: e }))}
+                    className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors ${catForm.emoji === e ? "bg-primary/20 border border-primary/30" : "bg-secondary hover:bg-secondary/80"}`}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {catDialog.edit && (
+              <Button variant="outline" onClick={() => { if (confirm("Remover esta categoria?")) deleteCat(catDialog.edit!.id); }}
+                className="w-full h-10 text-xs border-red-400/20 text-red-400 hover:bg-red-400/10 rounded-xl gap-2">
+                <Trash2 size={14} /> Excluir categoria
+              </Button>
+            )}
+            <Button onClick={saveCategory} className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground rounded-xl">
+              {catDialog.edit ? "Salvar" : "Criar categoria"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
         <SheetContent side="bottom" className="bg-admin-nav border-admin-card-border rounded-t-2xl max-h-[90vh] overflow-y-auto">

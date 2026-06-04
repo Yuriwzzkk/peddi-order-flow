@@ -119,3 +119,8 @@ export async function setFlowTriggerEvent(flowId: string, triggerEvent: string |
   const { error } = await supabase.from("automation_flows").update({ config }).eq("id", flowId);
   if (error) throw error;
 }
+
+export async function deleteFlow(flowId: string): Promise<void> {
+  const { error } = await supabase.from("automation_flows").delete().eq("id", flowId);
+  if (error) throw error;
+}

@@ -1,0 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient('https://sqclpeyoimddjcrfcrmi.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxY2xwZXlvaW1kZGpjcmZjcm1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMTg0ODQsImV4cCI6MjA5NDg5NDQ4NH0.77uHn-8svG99moJIf0dXuHFeprcvcg70nnSqEaFOadQ');
+await supabase.auth.signInWithPassword({ email: 'master@peddi.com.br', password: '123456' });
+const { data, error } = await supabase.from('payment_intents').select('*').limit(1);
+console.log('payment_intents:', error ? error.message : `${data?.length} rows`);
+const { data: rpc, error: rpcErr } = await supabase.rpc('get_tenant_by_domain', { p_domain: 'burger-house.foodwaker.app' });
+console.log('RPC get_tenant_by_domain:', rpcErr ? rpcErr.message : JSON.stringify(rpc));
+const { data: saas, error: saasErr } = await supabase.from('saas_settings').select('*').limit(5);
+console.log('saas_settings:', saasErr ? saasErr.message : `${saas?.length} rows`);
+if (saas) saas.forEach(s => console.log(' -', s.key, '=', s.value));

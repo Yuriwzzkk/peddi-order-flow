@@ -46,14 +46,14 @@ export default function N8nSettings() {
   const handleCreate = async () => {
     if (!restaurantId || !newUrl || !newName) return;
     try {
-      const wh = await createN8nWebhook(restaurantId, newEvent, newUrl, {});
+      const wh = await createN8nWebhook(restaurantId, newEvent, newUrl, {}, newName);
       setWebhooks(prev => [...prev, wh]);
       setNewUrl("");
       setNewName("");
       setShowForm(false);
       toast.success("Webhook criado!");
-    } catch {
-      toast.error("Erro ao criar webhook");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao criar webhook");
     }
   };
 

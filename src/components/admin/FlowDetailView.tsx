@@ -91,7 +91,7 @@ function getAIResponse(msg: string): { content: string; actions?: { label: strin
 
   if (lower.includes("gatilho") || lower.includes("mudar quando") || lower.includes("lógica")) {
     return {
-      content: `Entendo! 😊 A lógica dos gatilhos é gerenciada pela equipe técnica da Peddi para garantir que tudo funcione certinho.\n\nMas posso te ajudar a personalizar as mensagens ou criar fluxos novos!\n\nOu se precisar de algo específico nos gatilhos, é só falar que a gente configura pra você. 🙌`,
+      content: `Entendo! 😊 A lógica dos gatilhos é gerenciada pela equipe técnica da FoodWaker para garantir que tudo funcione certinho.\n\nMas posso te ajudar a personalizar as mensagens ou criar fluxos novos!\n\nOu se precisar de algo específico nos gatilhos, é só falar que a gente configura pra você. 🙌`,
       actions: [{ label: "💬 Falar com a Peddi", action: "contact_peddi" }],
     };
   }
@@ -119,7 +119,7 @@ export default function FlowDetailView({ flow, onClose, onToggle, onUpdateStep }
     {
       id: "init",
       role: "assistant",
-      content: "Olá! Sou o assistente da Peddi. 👋\n\nPosso te ajudar a melhorar este fluxo ou criar novos.\n\nO que você precisa?",
+      content: "Olá! Sou o assistente da FoodWaker. 👋\n\nPosso te ajudar a melhorar este fluxo ou criar novos.\n\nO que você precisa?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -171,8 +171,8 @@ export default function FlowDetailView({ flow, onClose, onToggle, onUpdateStep }
       toast.success("Fluxo de recuperação criado!");
       setMessages(prev => [...prev, { id: Date.now().toString(), role: "assistant", content: "Fluxo de recuperação criado com sucesso! 🎉 Ele vai aparecer na sua lista de automações com o badge 🆕 Novo." }]);
     } else if (action === "contact_peddi") {
-      toast.success("Solicitação enviada à equipe Peddi!");
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: "assistant", content: "Enviei sua solicitação para a equipe técnica da Peddi! Eles vão entrar em contato em breve. 🙌" }]);
+      toast.success("Solicitação enviada à equipe FoodWaker!");
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: "assistant", content: "Enviei sua solicitação para a equipe técnica da FoodWaker! Eles vão entrar em contato em breve. 🙌" }]);
     } else if (action === "another_version") {
       setTyping(true);
       setTimeout(() => {
@@ -265,7 +265,7 @@ export default function FlowDetailView({ flow, onClose, onToggle, onUpdateStep }
                       </button>
                     ) : (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Lock size={10} /> Gerenciado pela Peddi
+                        <Lock size={10} /> Gerenciado pela FoodWaker
                       </span>
                     )}
                   </div>
@@ -308,7 +308,7 @@ export default function FlowDetailView({ flow, onClose, onToggle, onUpdateStep }
           <div className="px-4 py-3 border-b border-admin-card-border shrink-0">
             <div className="flex items-center gap-2">
               <Zap size={16} className="text-[hsl(var(--primary))]" />
-              <span className="text-sm font-semibold text-foreground">Assistente Peddi</span>
+              <span className="text-sm font-semibold text-foreground">Assistente FoodWaker</span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">Powered by IA</p>
           </div>

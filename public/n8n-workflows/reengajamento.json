@@ -1,0 +1,129 @@
+{
+  "name": "📢 Reengajamento — Clientes Inativos 7 dias",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hour", "minuteInterval": 11 }]
+        }
+      },
+      "name": "⏰ Schedule: Diário às 11h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Para cada restaurante ativo, buscar clientes inativos\nconst supabaseUrl = $env.SUPABASE_URL;\nconst supabaseKey = $env.SUPABASE_SERVICE_KEY;\n\n// Buscar todos os restaurantes ativos\nconst response = await fetch(`${supabaseUrl}/rest/v1/restaurantes?ativo=eq.true&select=id,nome,whatsapp_number`, {\n  headers: {\n    apikey: supabaseKey,\n    Authorization: `Bearer ${supabaseKey}`\n  }\n});\nconst restaurantes = await response.json();\n\nreturn { restaurantes };"
+      },
+      "name": "🏪 1. Buscar restaurantes ativos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "arrayItem",
+        "options": {}
+      },
+      "name": "🔄 Loop: Restaurantes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/clientes?restaurante_id=eq.{{ $json.id }}&ultimo_pedido=lt.{{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}&select=*",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "name": "👥 2. Clientes inativos 7d",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "mode": "arrayItem",
+        "options": {}
+      },
+      "name": "🔄 Loop: Clientes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $json;\nconst restaurante = $('🏪 1. Buscar restaurantes ativos').first().json.restaurantes.find(r => r.id === cliente.restaurante_id);\n\nconst nome = cliente.nome || cliente.telefone || 'cliente';\nconst nomeRestaurante = restaurante?.nome || 'Restaurante';\n\nreturn {\n  to: cliente.telefone,\n  nome,\n  message: `Ei ${nome}! Sentimos sua falta! 😊\\n\\nQue tal um pedido hoje no ${nomeRestaurante}? 🍕\\n\\nEstamos com novidades no cardápio!\\n\\n1️⃣ Ver cardápio\\n2️⃣ Falar com atendente`\n};"
+      },
+      "name": "💬 3. Montar mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { to, message } = $input.first().json;\nreturn {\n  url: 'https://api.z-api.io/instances/{{INSTANCE_ID}}/token/{{TOKEN}}/send-text',\n  body: { phone: to, message }\n};"
+      },
+      "name": "📤 Enviar WhatsApp (Z-API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "name": "⏳ Delay entre envios",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1250, 500]
+    }
+  ],
+  "connections": {
+    "⏰ Schedule: Diário às 11h": {
+      "main": [[{ "node": "🏪 1. Buscar restaurantes ativos", "type": "main", "index": 0 }]]
+    },
+    "🏪 1. Buscar restaurantes ativos": {
+      "main": [[{ "node": "🔄 Loop: Restaurantes", "type": "main", "index": 0 }]]
+    },
+    "🔄 Loop: Restaurantes": {
+      "main": [[{ "node": "👥 2. Clientes inativos 7d", "type": "main", "index": 0 }]]
+    },
+    "👥 2. Clientes inativos 7d": {
+      "main": [[{ "node": "🔄 Loop: Clientes", "type": "main", "index": 0 }]]
+    },
+    "🔄 Loop: Clientes": {
+      "main": [
+        [{ "node": "💬 3. Montar mensagem", "type": "main", "index": 0 }]
+      ]
+    },
+    "💬 3. Montar mensagem": {
+      "main": [
+        [{ "node": "📤 Enviar WhatsApp (Z-API)", "type": "main", "index": 0 }],
+        [{ "node": "⏳ Delay entre envios", "type": "main", "index": 1 }]
+      ]
+    },
+    "📤 Enviar WhatsApp (Z-API)": {
+      "main": [[{ "node": "⏳ Delay entre envios", "type": "main", "index": 0 }]]
+    },
+    "⏳ Delay entre envios": {
+      "main": [[{ "node": "🔄 Loop: Clientes", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "tags": ["peddi-order", "reengajamento", "marketing"]
+}

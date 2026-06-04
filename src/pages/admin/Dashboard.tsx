@@ -41,7 +41,7 @@ export default function Dashboard() {
   const loadStats = useCallback(async () => {
     if (!restaurantId) return;
     try {
-      const data = await getDashboardStats(restaurantId);
+      const data = await getDashboardStats(restaurantId, period);
       setStats(data);
       setChartData(data.hourlyOrders?.length ? data.hourlyOrders : [
         { hour: "10h", pedidos: 0 }, { hour: "12h", pedidos: 0 }, { hour: "14h", pedidos: 0 },
@@ -59,14 +59,14 @@ export default function Dashboard() {
     } catch {
       // keep defaults if loading fails
     }
-  }, [restaurantId]);
+  }, [restaurantId, period]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
   useEffect(() => {
     if (!restaurantId) return;
-    const unsub = subscribeOrders(restaurantId, () => { loadStats(); });
-    return () => { unsub.then(u => u.unsubscribe()).catch(() => {}); };
+    const channel = subscribeOrders(restaurantId, () => { loadStats(); });
+    return () => { channel.unsubscribe(); };
   }, [restaurantId, loadStats]);
 
   const statsCards = stats ? [

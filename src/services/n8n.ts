@@ -25,11 +25,19 @@ export async function createN8nWebhook(
   restaurantId: string,
   triggerEvent: string,
   webhookUrl: string,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
+  name?: string
 ): Promise<N8nWebhook> {
   const { data, error } = await supabase
     .from("n8n_webhooks")
-    .insert({ restaurant_id: restaurantId, trigger_event: triggerEvent, webhook_url: webhookUrl, headers, active: true })
+    .insert({
+      restaurant_id: restaurantId,
+      trigger_event: triggerEvent,
+      webhook_url: webhookUrl,
+      headers,
+      active: true,
+      name: name || `${triggerEvent} - ${new Date().toISOString().slice(0, 16)}`,
+    })
     .select()
     .single();
   if (error) throw error;

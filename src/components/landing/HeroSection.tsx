@@ -98,7 +98,7 @@ export function HeroSection() {
                 ))}
               </div>
               <p className="text-sm text-foreground-muted">
-                <span className="text-foreground font-medium">+1.200 restaurantes</span> já usam o Peddi
+                <span className="text-foreground font-medium">+1.200 restaurantes</span> já usam o FoodWaker
               </p>
             </motion.div>
           </div>
